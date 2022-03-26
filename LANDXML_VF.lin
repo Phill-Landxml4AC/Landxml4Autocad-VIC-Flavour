@@ -1,0 +1,30 @@
+;;LTYPESHP AutoCAD Linetype file  revision 1
+;;Edited by Phillip Nixon 2015 from Landinfo.lin by Tony Monforte 20.05.1997
+
+*FENCE,-- / --------
+A,1,-.25,["/",STANDARD,S=.35,R=0,X=-.15,Y=-.15],-.25,1
+*FENCE_ON_BDRY,-- / --------
+A,1.25,["/",STANDARD,S=0.35,R=0,X=0,Y=0],1.25
+*WALL,___\\_____"
+A,.75,["\\",STANDARD,s=.35,R=180],.25
+*BUILDING,"___\____"
+A,.3,["\",STANDARD,s=.35,R=180],.3
+*EASEMENT,__ __ __ __ __ __ __ __ __ __ __ __ __ _
+A,1,-.5
+*TRAVERSE,__ __ _____ __ __ __ __ __ __ __ __ __ _
+A,2,-.5,1,-.5,1,-0.5,2
+*PM_CONNECTION,__ __ __ __ __ __ __ __ __ __ __ __ __ _
+A,1,-.5
+*KERB,____  ____  ____  ____  ____  ___
+A,3.0,-.5
+*PARISH BOUNDARY,-- . --------
+A,1,-.25,[".",STANDARD,S=.35,R=0,X=-.0,Y=-.0],-.25,1
+*COUNTY BOUNDARY,-- X --------
+A,1,-.25,["X",STANDARD,S=.35,R=0,X=-.0,Y=-.0],-.25,1
+*STRUCTURE_INTERIOR,-- / --------
+A,0.3,["/",STANDARD,S=0.35,R=0,X=0,Y=0],0.3
+*STRUCTURE_EXTERIOR,-- / --------
+A,0.3,["/",STANDARD,S=0.35,R=180,X=0,Y=0],0.3
+*STRUCTURE_MEDIAN,-- / --------
+A,0.3,["\",STANDARD,S=0.35,R=0,X=0,Y=0],0,["/",STANDARD,S=0.35,R=180,X=0.22,Y=0],0.3
+

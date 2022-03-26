@@ -1,0 +1,83 @@
+//
+//      
+//
+
+***MENUGROUP=LandXML
+
+***POP10
+               [LandXML]
+
+[Traverse (XTR)]^C^CXTR
+[Arc Traverse (XTA)]^C^CXTA
+[Chainage Traverse (XTC)]^C^CXTC
+[Create Lot (XCL)]^C^CXCL
+[Create Easement Lot (XCE)]^C^CXCE
+[Link Easement Geometry (XLE)]^C^CXLE
+[Create Road/Reserve Lot (XCR)]^C^CXCR
+[Create mark (XCM)]^C^CXCM
+[Create PM mark (XPM)]^C^CXPM
+[Create Datum Point (XDP)]^C^CXDP
+[Create occupation offset (XOC)]^C^CXOC
+[Create Queenland style point occupation (XOQ)]^C^CXOQ
+[Create Admin Sheet (XAS)]^C^CXAS
+[Add Layout Sheet (XLA)]^C^CXLA
+[Add owners corporation schedule (XCOC)]^C^CXCOC
+
+[--]
+
+[Assign line to XML (XAL)]^C^CXAL
+[Assign line to XML with note (XALN)]^C^CXALN
+[Assign ARC to XML (XAA)]^C^CXAA
+[Assign ARC to XML with note(XAAN)]^C^CXAAN
+[Assign Polyline (Lot) to XML (XAP)]^C^CXAP
+[Assign Polyline (Easement) to XML (XAE)]^C^CXAE
+[Assign Polyline (New Road/Reserve) to XML (XAR)]^C^CXAR
+[Assign Polyline (Adjoining) to XML (XJL)]^C^CXJL
+[Assign Polyline (Existing Road) to XML (XJR)]^C^CXJR
+[Assign Polyline (Chainage) to XML (XAC)]^C^CXAC
+[Create Chainage from picks (XCC)]^C^CXCC
+[Assign Title to Polyine(XTI)]^C^CXTI
+[Assign Address Polyine(XAD)]^C^CXAD
+[Assign Multitext Plan notes (XAM)]^C^CXAM
+[Assign Occupation to XML (XAO)]^C^CXAO
+[Assign Lines to Short line table (XSL)]^c^cXSL
+[Assign Lines to Arcs line table (XSC)]^c^cXSC
+[Offset Line (XOS)]^c^cXOS
+[Assign Polyline as Irregular Boundary (XAI)]^c^cXAI
+[Edit xdata manually (XDE)]^c^cXDE
+
+[--]
+[Create Station Labels (XCS)]^C^CXCS
+[Swap Text positions (XSW)]^C^CXSW
+[Spin Text 180° (XSP)]^C^CXSP
+[Spread Bearings (XSB)]^C^CXSB
+[Create Brackets around text (XCB)]^C^CXCB
+[Recreate Text from Xdata (XRT)]^C^CXRT
+[Make tick marks (XMT)]^C^CXMT
+[Push text past line with extension (XPU)]^C^CXPU
+[Check check digits (XCD)]^C^CXCD
+
+[--]
+
+[Import XML file (XIN)]^C^CXIN
+[Export XML file (XOUT)]^C^CXOUT
+
+[--]
+[Import XML file using observations (XINO)]^C^CXINO
+[Import import XML as simple stlye using observations (XINS)]^C^CXINS
+[Export Monuments to CSV (XMO)]^C^CXMO
+
+[--]
+
+[Set Drawing Scale (XSS)]^C^CXSS
+[Turn round on/off (XRD)]^C^CXRD
+[Shift Lot Centre Poistions (XMLC)]^C^CXMLC
+[Clean and Tidy Coodinaes (XCT)]^C^CXCT
+
+
+
+
+//
+//     
+//
+
