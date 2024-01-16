@@ -64,8 +64,18 @@
 ;              -Tilemode to modelspace added
 ;Revision 1.4.5-Fixed problem where distance between points on an arc is greater than the radius (See LP11939)
 ;Revisons 1.4.6-Fixed bug in xino roadline reader
+;Revision 1.5  -Xbin added for bulk xml to dwg conversion
+;              -Changes to linereader function to deal with linefed lines in xml
+;              -Changes t0 arc reader in xin to include when chord distance is exactly equal to 2 x radius
+;              -Change iod to oID on control point xout
+;              -Made XDP text 0.5mm
+;              -Made XPM text 0.35mm
+;              -Added XCHO
+;              -Fixed problem with Dialog box when no support file search path - still need path for blocks
+;              -Change XRT to deal with chainage lines
+;              -Fixed problem with Supp AFR comming up when no file is found
 
-(setq version "1.4.6")
+(setq version "1.5")
 
 
 (REGAPP "LANDXML")
@@ -308,8 +318,8 @@
   )
  )
  (setq vl2 (vla-item vl1 (vl-filename-base st1)))
- ;;create menu lists
- (setq ls1 (list '("XTR" "Traverse")		 '("XTA" "Arc Traverse")		 '("XTC" "Chainage Traverse")
+ ;;create menu lists 
+ (setq ls1 (list '("XTR" "Traverse")		 '("XTA" "Arc Traverse")		 '("XTC" "Chainage Traverse") '("XTCO" "Chainage Traverse & offset")
 		 '("XCL" "Create Lot")			 '("XCE" "Create Easement Lot")		 '("XLE" "Link Easemnt Geometry")
 		 '("XCR" "Create Road/Reserve Lot")		 '("XCM" "Create mark")		 '("XPM" "Create PM mark")
 		 '("XDP" "Create Datum Point")		 '("XOC" "Create occupation offset")		 '("XOQ" "Create Queensland style point occupation")
@@ -319,7 +329,7 @@
        ls2 (list '("XAL" "Assign line to XML")		 '("XALN" "Assign line to XML with note")		 '("XAA" "Assign arc to XML")
 		 '("XAAN" "Assign arc to XML with note")		 '("XAN" "Add note to line or arc")		 '("XAP" "Assign Polyline (Lot) to XML")
 		 '("XAR" "Assign Polyline (New Road/Reserve) to XML")		 '("XJL" "Assign Polyline (Adjoining) to XML")		 '("XJR" "Assign Polyline (Existing Road) to XML")
-		 '("XAC" "Assign Polyline (Chainage) to XML")		 '("XCC" "Create chainage from picks")		 '("XTI" "Assign Title to polyline")
+		 '("XAC" "Assign Polyline (Chainage) to XML")		 '("XCC" "Create chainage from polyline") '("XCHO" "Create chainage and offsets from polyline")		 '("XTI" "Assign Title to polyline")
 		 '("XAD" "Assign Address to polyline")		 '("XAM" "Assign Multitext Plan Notes")		 '("XAO" "Assign Occupation to XML")
 		 '("XOS" "Offset Line")		 '("XAI" "Assign Polyline as Irregular Boundary")
 		)
@@ -501,21 +511,27 @@
 
 (setq autoloadff "J:\\IE\\Admin\\03_Southern\\Survey\\03_CAD Standards Survey\\vicmap_cad_supply\\XML\\")
 (SETQ autoloadlist (list
+		     "ALPINE"
 		     "ARARAT"
 		     "BALLARAT"
                      "BANYULE"
 		     "BASS COAST"
 		     "BAW BAW"
 		     "BAYSIDE"
+		     "BENNALA"
 		     "BOROONDARA"
 		     "BRIMBANK"
+		     "BULOKE"
 		     "CAMPASPE"
 		     "CARDINIA"
 		     "CASEY"
+		     "CENTRAL GOLDFIELDS"
 		     "COLAC OTWAY"
 		     "CORANGAMITE"
 		     "DAREBIN"
+		     "EAST GIPPSLAND"
 		     "FRANKSTON"
+		     "FRENCH-ELIZABETH-SANDSTONE ISLANDS (UNINC)"
 		     "GLEN EIRA"
 		     "GLENELG"
 		     "GOLDEN PLAINS"
@@ -523,15 +539,20 @@
 		     "GREATER DANDENONG"
 		     "GREATER GEELONG"
 		     "GREATER SHEPPARTON"
+		     "GANNAWARRA"
+		     "HEPBURN"
+		     "HINDMARSH"
 		     "HOBSONS BAY"
 		     "HORSHAM"
 		     "HUME"
+		     "INDIGO"
 		     "KINGSTON"
 		     "KNOX"
 		     "LATROBE"
 		     "LODDON"
 		     "MACEDON RANGES"
 		     "MANNINGHAM"
+		     "MANSFIELD"
 		     "MARIBYRNONG"
 		     "MAROONDAH"
 		     "MELBOURNE"
@@ -548,21 +569,28 @@
 		     "MOYNE"
 		     "MURRINDINDI"
 		     "NILLUMBIK"
+		     "NORTHERN GRAMPIANS"
 		     "PORT PHILLIP"
+		     "PYRENEES"
+		     "QUEENSCLIFFE"
 		     "SOUTH GIPPSLAND"
 		     "SOUTHERN GRAMPIANS"
 		     "STONNINGTON"
+		     "STRATHBOGIE"
 		     "SURF COAST"
 		     "SWAN HILL"
+		     "TOWONG"
 		     "WANGARATTA"
 		     "WARRNAMBOOL"
 		     "WELLINGTON"
+		     "WEST WIMMERA"
 		     "WHITEHORSE"
 		     "WHITTLESEA"
 		     "WODONGA"
 		     "WYNDHAM"
 		     "YARRA"
 		     "YARRA RANGES"
+		     "YARRIAMBIACK"
 			 
 ))
 
@@ -577,6 +605,7 @@
 (princ "\nXTR - Traverse")
 (princ "\nXTA - Arc Traverse")
 (princ "\nXTC - Chainage Traverse")
+(princ "\nXTCO - Chainage & offset Traverse")
 (princ "\nXTS - Angle Traverse")
 (princ "\nXCL - Create Lot")
 (princ "\nXCE - Create Easement Lot")
@@ -603,6 +632,8 @@
 (princ "\nXJR - Assign Polyline to Existing Road")
 (princ "\nXAI - Assign Polyline as Irregular Boundary")
 (princ "\nXAC - Assign Polyline as chainage")
+(princ "\nXCC - Create chainage from polylines points")
+(princ "\nXCHO - Create chainage and offset from polyline points")
 (princ "\nXAO - Assign description to Occupation")
 (princ "\nXAM - Assign multitext")
 (princ "\nXAN - Assign note to line/arc")
@@ -5331,14 +5362,17 @@
       )
     (PROGN
       
-
+(SETVAR "CELWEIGHT" 35)
 (SETQ TEXTPOS (LIST (+ (CAR PMPOS) TH) (+ (CADR PMPOS) (* 0.5 TH))))
   ;NSW(IF (= pmstate "Found")  (SETQ PMNUMS (STRCAT PMNUM " FD")))
   (IF (= rmstate "Placed")  (SETQ PMNUMS (STRCAT PMNUM " PL"))(SETQ PMNUMS PMNUM))
 		 (COMMAND "TEXT" "J" "BL"  TEXTPOS (* TH 1.4) "90" PMNUMS)
   (SETQ TEXTPOS (LIST (+ (CAR PMPOS) TH) (+ (CADR PMPOS) (* -1.25 TH))))
   ;NSW(IF (and (/= pmclass "U") (= pmsource "SCIMS" ))(COMMAND "TEXT" "J" "BL"  TEXTPOS (* TH 1.4) "90" "(EST)"))
-  ))
+
+(SETVAR "CELWEIGHT" -1)
+
+))
 
 
 
@@ -5530,6 +5564,7 @@
 		 
 
   	 (SETVAR "CLAYER"  "Drafting AFR" )
+  (SETVAR "CELWEIGHT" 50)	
       (if (/= height 0)
   		 (progn;stratum datum point
 			 (COMMAND "TEXT" "J" "BR"  TEXTPOS (* TH 1.4) "90"  ab )
@@ -5537,6 +5572,7 @@
 			 );P
 	       (COMMAND "TEXT" "J" "BR"  TEXTPOS (* TH 2) "90"  (STRCAT "'" ab "'") );normal datum point
 		       );IF SPCPOS2 NIL
+  (SETVAR "CELWEIGHT" -1)	
   
   (setvar "clayer" prevlayer)
   
@@ -5698,32 +5734,32 @@
     (setq p1 (getpoint "\nEnter start coords: "))
     (setq bearing (getstring "\nBearing(DD.MMSS): "))
   (setq obearing bearing)
-   (setq dist (getstring T (strcat "\nDistance[Meters/Feet/DecimalFeet/Links]" units ":")))
+   (setq dist (getstring T (strcat "\nChainage[Meters/Feet/DecimalFeet/Links]" units ":")))
 
   (if (or (= dist "f") (= dist "F") (= dist "Feet") (= dist "feet") (= dist "FEET"))
     (progn
-      (setq dist (getstring T "\nDistance(Feet FF.II.n/d ): "))
+      (setq dist (getstring T "\nChainage(Feet FF.II.n/d ): "))
       (setq units "F")
       )
     )
   
    (if (or (= dist "d")(= dist "df")(= dist "DF") (= dist "D") (= dist "DecimalFeet") (= dist "decimalfeet") (= DIST "DECIMALFEET"))
     (progn
-      (setq dist (getstring T "\nDistance(Decimal Feet): "))
+      (setq dist (getstring T "\nChainage(Decimal Feet): "))
       (setq units "DF")
       )
     )
 
   (if (or (= dist "l") (= dist "L") (= dist "Links") (= dist "LINKS") (= DIST "links"))
     (progn
-      (setq dist (getstring T "\nDistance(Links): "))
+      (setq dist (getstring T "\nChainage(Links): "))
       (setq units "L")
       )
     )
 
     (if (or (= dist "m") (= dist "M") (= dist "Meters") (= dist "meters") (= DIST "METERS"))
     (progn
-      (setq dist (getstring T "\nDistance(Meters): "))
+      (setq dist (getstring T "\nChainage(Meters): "))
       (setq units "M")
       )
     )
@@ -6288,6 +6324,878 @@
 
 
 
+;-------------------------------------------------------------------DRAW CHAINAGE AND OFFSET-------------------------------------
+(defun C:XTCO (/)
+
+  (setq entss (ssadd))
+  (setq chainlist "00")
+  (setq prevlayer (getvar "CLAYER"))
+
+  ;GET 1ST LINE INFO
+    (graphscr)
+    
+    (setq p1 (getpoint "\nEnter start coords: "))
+    (setq bearing (getstring "\nBearing(DD.MMSS): "))
+  (setq obearing bearing)
+   (setq dist (getstring T (strcat "\nChainage[Meters/Feet/DecimalFeet/Links]" units ":")))
+ 
+
+  (if (or (= dist "f") (= dist "F") (= dist "Feet") (= dist "feet") (= dist "FEET"))
+    (progn
+      (setq dist (getstring T "\nDistance(Feet FF.II.n/d ): "))
+      (setq units "F")
+      )
+    )
+  
+   (if (or (= dist "d")(= dist "df")(= dist "DF") (= dist "D") (= dist "DecimalFeet") (= dist "decimalfeet") (= DIST "DECIMALFEET"))
+    (progn
+      (setq dist (getstring T "\nDistance(Decimal Feet): "))
+      (setq units "DF")
+      )
+    )
+
+  (if (or (= dist "l") (= dist "L") (= dist "Links") (= dist "LINKS") (= DIST "links"))
+    (progn
+      (setq dist (getstring T "\nDistance(Links): "))
+      (setq units "L")
+      )
+    )
+
+    (if (or (= dist "m") (= dist "M") (= dist "Meters") (= dist "meters") (= DIST "METERS"))
+    (progn
+      (setq dist (getstring T "\nDistance(Meters): "))
+      (setq units "M")
+      )
+    )
+
+  
+  (setq prevdist dist)
+
+   (SETQ off (getstring T (strcat "\nOffset "units":")))
+  (setq yeoldoff off)
+
+    (setq spcpos1 (vl-string-position 32 off))
+	(if (= spcpos1 nil)(setq offcomment "")(progn
+					      (setq offcomment (substr off ( + spcpos1 2) ))
+					      (setq off (substr off 1  spcpos1 ))
+					      (setq yeoldoff off)
+					      )
+	  )
+ 
+ ;APPLY ALL CORRECTIONS AND EXTRACT INFORMATION FROM USER INPUT
+
+  ;reverse
+  (if (or (= (substr bearing 1 1 ) "r") (= (substr bearing 1 1 ) "R" ))
+    (progn
+      (setq bearing (substr bearing 2 50))
+      (setq rswitch "T")
+      )
+     (setq rswitch "F")
+    )
+
+;look for cardinals
+  (setq card1 ""
+	card2 "")
+  (IF (OR (= (substr bearing 1 1 ) "n") (= (substr bearing 1 1 ) "N" )
+	  (= (substr bearing 1 1 ) "s" )(= (substr bearing 1 1 ) "S" )
+	  (= (substr bearing 1 1 ) "e" )(= (substr bearing 1 1 ) "E" )
+	  (= (substr bearing 1 1 ) "w" )(= (substr bearing 1 1 ) "W" ))
+(progn
+    (setq card1 (substr bearing 1 1))
+    (setq card2 (substr bearing (strlen bearing) 1))
+    (setq bearing (substr bearing 2 (- (strlen bearing )2)))
+  )
+    )
+    
+  
+(if (/= (vl-string-position 46 bearing 0) nil ) (PROGN
+  (setq dotpt1 (vl-string-position 46 bearing 0))
+  (setq deg  (substr bearing 1  dotpt1 ))
+  (SETQ mins  (strcat (substr bearing (+ dotpt1 2) 2) (chr 39)))
+  (setq sec  (substr bearing (+ dotpt1 4) 10))
+
+  
+  (if (> (strlen sec) 2) (setq sec (strcat (substr sec 1 2) "." (substr sec 3 10))))
+  (if (= (strlen sec) 0) (setq sec "") (setq sec (strcat sec (chr 34))))
+
+  
+  (if (or
+	(= (strlen sec) 2)
+	(= (strlen mins) 2)
+	(> (atof mins) 60)
+	(> (atof sec) 60)
+	(> (atof deg) 360)
+	)
+    (alert (strcat "That bearing looks a little funky - " bearing)))
+  
+  
+  );P
+	(progn
+	  (setq deg bearing)
+	  (setq mins "")
+	  (setq sec "")
+	  );p else
+  
+  );IF
+
+ ;correct cardinals
+
+    (IF  (and (or (= card1 "n")(= card1 "N")(= card1 "s")(= card1 "S"))(and (/= card2 "w")(/= card2 "W")(/= card2 "e")(/= card2 "E")))
+	  (alert (strcat "Cardinal missing E or W"))
+    )
+  
+  (if (and (or (= card1 "n")(= card1 "N"))(or (= card2 "w")(= card2 "W")))
+    (progn
+      (setq deg (rtos (- 360 (atof deg)) 2 0))
+      (if (< 0 (atof mins))(progn
+			     (setq mins (strcat (rtos (- 60 (atof mins)) 2 0) (chr 39)))
+			     (setq deg (rtos (- (atof deg) 1) 2 0))
+			     (if (< (atof deg) 0)(setq deg (rtos (+ (atof deg) 360) 2 0)))
+				)
+	     )
+	(if (< 0 (atof sec))
+	       (progn
+		 (setq sec (strcat (rtos (- 60 (atof sec)) 2 0) (chr 34)))
+		 (if (= 0 (atof mins)) (setq deg (rtos (- (atof deg) 1) 2 0)))
+		 (setq mins (strcat (rtos (- (atof mins) 1) 2 0) (chr 39)))
+	       
+		 (if (< (atof deg) 0)(setq deg (rtos (+ (atof deg) 360) 2 0)))
+		 (if (< (atof mins) 0)(setq mins (strcat (rtos (+ (atof mins) 60) 2 0)(chr 39))))
+		 )
+	  )
+      	           
+(if (or (and (< (atof mins) 10)(/= 0 (atof mins))) (= mins "0'")) (setq mins (strcat "0" mins)))
+(if (and (< (atof sec) 10)(/= 0 (atof sec))) (setq sec (strcat "0" sec)))
+		 
+      )
+    );NW
+
+		   
+
+		   (if (and (or (= card1 "w")(= card1 "W"))(or (= card2 "s")(= card2 "S")))
+    (progn
+      (setq deg (rtos (- 270 (atof deg)) 2 0))
+      (if (< 0 (atof mins))(progn
+			     (setq mins (strcat (rtos (- 60 (atof mins)) 2 0) (chr 39)))
+			     (setq deg (rtos (- (atof deg) 1) 2 0))
+			     (if (< (atof deg) 0)(setq deg (rtos (+ (atof deg) 360) 2 0)))
+				)
+	     )
+	(if (< 0 (atof sec))
+	       (progn
+		 (setq sec (strcat (rtos (- 60 (atof sec)) 2 0) (chr 34)))
+		 (if (= 0 (atof mins)) (setq deg (rtos (- (atof deg) 1) 2 0)))
+		 (setq mins (strcat (rtos (- (atof mins) 1) 2 0) (chr 39)))
+	       
+		 (if (< (atof deg) 0)(setq deg (rtos (+ (atof deg) 360) 2 0)))
+		 (if (< (atof mins) 0)(setq mins (strcat (rtos (+ (atof mins) 60) 2 0)(chr 39))))
+		 )
+	  )
+      	           
+(if (or (and (< (atof mins) 10)(/= 0 (atof mins))) (= mins "0'")) (setq mins (strcat "0" mins)))
+(if (and (< (atof sec) 10)(/= 0 (atof sec))) (setq sec (strcat "0" sec)))
+		 
+      )
+    );WS
+
+		   
+		   (if (and (or (= card1 "e")(= card1 "E"))(or (= card2 "n")(= card2 "N")))
+    (progn
+      (setq deg (rtos (- 90 (atof deg)) 2 0))
+      (if (< 0 (atof mins))(progn
+			     (setq mins (strcat (rtos (- 60 (atof mins)) 2 0) (chr 39)))
+			     (setq deg (rtos (- (atof deg) 1) 2 0))
+			     (if (< (atof deg) 0)(setq deg (rtos (+ (atof deg) 360) 2 0)))
+				)
+	     )
+	(if (< 0 (atof sec))
+	       (progn
+		 (setq sec (strcat (rtos (- 60 (atof sec)) 2 0) (chr 34)))
+		 (if (= 0 (atof mins)) (setq deg (rtos (- (atof deg) 1) 2 0)))
+		 (setq mins (strcat (rtos (- (atof mins) 1) 2 0) (chr 39)))
+	       
+		 (if (< (atof deg) 0)(setq deg (rtos (+ (atof deg) 360) 2 0)))
+		 (if (< (atof mins) 0)(setq mins (strcat (rtos (+ (atof mins) 60) 2 0)(chr 39))))
+		 )
+	  )
+      	           
+(if (or (and (< (atof mins) 10)(/= 0 (atof mins))) (= mins "0'")) (setq mins (strcat "0" mins)))
+(if (and (< (atof sec) 10)(/= 0 (atof sec))) (setq sec (strcat "0" sec)))
+		 
+      )
+    );EN
+
+  (if (and (or (= card1 "s")(= card1 "S"))(or (= card2 "e")(= card2 "E")))
+    (progn
+      (setq deg (rtos (- 180 (atof deg)) 2 0))
+      (if (< 0 (atof mins))(progn
+			     (setq mins (strcat (rtos (- 60 (atof mins)) 2 0) (chr 39)))
+			     (setq deg (rtos (- (atof deg) 1) 2 0))
+			     (if (< (atof deg) 0)(setq deg (rtos (+ (atof deg) 360) 2 0)))
+				)
+	     )
+	(if (< 0 (atof sec))
+	       (progn
+		 (setq sec (strcat (rtos (- 60 (atof sec)) 2 0) (chr 34)))
+		 (if (= 0 (atof mins)) (setq deg (rtos (- (atof deg) 1) 2 0)))
+		 (setq mins (strcat (rtos (- (atof mins) 1) 2 0) (chr 39)))
+	       
+		 (if (< (atof deg) 0)(setq deg (rtos (+ (atof deg) 360) 2 0)))
+		 (if (< (atof mins) 0)(setq mins (strcat (rtos (+ (atof mins) 60) 2 0)(chr 39))))
+		 )
+	  )
+      	           
+(if (or (and (< (atof mins) 10)(/= 0 (atof mins))) (= mins "0'")) (setq mins (strcat "0" mins)))
+(if (and (< (atof sec) 10)(/= 0 (atof sec))) (setq sec (strcat "0" sec)))
+		 
+      )
+    );SE
+
+  (if (and (or (= card1 "s")(= card1 "S"))(or (= card2 "w")(= card2 "W")))
+    (progn
+      (setq deg (rtos (+ 180 (atof deg)) 2 0))
+      
+      )
+    );SW
+
+		    (if (and (or (= card1 "w")(= card1 "W"))(or (= card2 "n")(= card2 "N")))
+    (progn
+      (setq deg (rtos (+ 270 (atof deg)) 2 0))
+      
+      )
+    );WN
+		    (if (and (or (= card1 "e")(= card1 "E"))(or (= card2 "s")(= card2 "S")))
+    (progn
+      (setq deg (rtos (+ 90 (atof deg)) 2 0))
+      
+      )
+    );ES
+
+  		   (if (and (= mins "")(= sec ""))(setq decimal "")(setq decimal "."))
+(setq lbearing (strcat deg decimal (substr mins 1 2) (substr sec 1 2)))
+   (if (= rswitch "T")(setq lbearing (strcat "R" lbearing)))
+  (IF ( = rswitch "T")(setq obearing (substr lbearing 2 200))(setq obearing lbearing))
+
+
+
+  ;look for line comment
+  (setq spcpos1 (vl-string-position 32 dist 0))
+	(if (= spcpos1 nil)(setq comment "")(progn
+					      (setq comment (substr dist ( + spcpos1 2) 50))
+					      (setq dist (substr dist 1  spcpos1 ))
+					      )
+	  )
+
+
+  
+    (if (= units "F")
+      (progn
+	 (setq dotpos1 (vl-string-position 46 dist 0)) 
+		    
+	(if (= dotpos1 nil)(setq dotpos2 nil)(setq dotpos2 (vl-string-position 46 dist (+ dotpos1 1))))
+	(setq /pos1 (vl-string-position 47 dist 0))
+	(if (/= /pos1 nil)
+	  (progn
+	    (setq den (substr dist ( + /pos1 2) 50))
+	    (setq num (substr dist ( + dotpos2 2) (- (- /pos1 dotpos2) 1)))
+	    (setq idist (/ (atof num) (atof den)))
+	    (setq inches (substr dist (+ dotpos1 2) (- (- dotpos2 dotpos1) 1)))
+	    (setq idist (+ idist (atof inches)))
+	    (setq feet (substr dist 1  dotpos1 ))
+	    (setq idist (+ idist (* (atof feet) 12)))
+	    (setq dist (rtos (* idist 0.0254) 2 9))
+	    )
+	  )
+	(if (and (/= dotpos1 nil) (= /pos1 nil))
+	  (progn
+	    (setq inches (substr dist ( + dotpos1 2) 50))
+	    (setq feet (substr dist 1  dotpos1 ))
+	    (setq idist  (atof inches))
+	    (setq idist (+ idist (* (atof feet) 12)))
+	    (setq dist (rtos (* idist 0.0254) 2 9))
+	    )
+	  )
+	(if (and (= dotpos1 nil) (= /pos1 nil) (= dotpos2 nil))
+	  (progn
+	   
+	    (setq feet (substr dist 1  50))
+	    (setq idist (* (atof feet) 12))
+	    (setq dist (rtos (* idist 0.0254) 2 9))
+	    )
+	  )
+      )
+    )
+  (if (= units "L")
+    (progn
+      (setq dist (atof dist))
+      (setq dist (rtos (* dist 0.201168)))
+      )
+    )
+  (if (= units "DF")
+    (progn
+      (setq dist (atof dist))
+      (setq dist (rtos (* dist 0.3048)))
+      )
+    )
+
+
+  ;offset
+   (if (= units "F")
+      (progn
+	 (setq dotpos1 (vl-string-position 46 off 0)) 
+		    
+	(if (= dotpos1 nil)(setq dotpos2 nil)(setq dotpos2 (vl-string-position 46 off (+ dotpos1 1))))
+	(setq /pos1 (vl-string-position 47 off 0))
+	(if (/= /pos1 nil)
+	  (progn
+	    (setq den (substr off ( + /pos1 2) 50))
+	    (setq num (substr off ( + dotpos2 2) (- (- /pos1 dotpos2) 1)))
+	    (setq ioff (/ (atof num) (atof den)))
+	    (setq inches (substr off (+ dotpos1 2) (- (- dotpos2 dotpos1) 1)))
+	    (setq ioff (+ ioff (atof inches)))
+	    (setq feet (substr off 1  dotpos1 ))
+	    (setq ioff (+ ioff (* (atof feet) 12)))
+	    (setq off (rtos (* ioff 0.0254) 2 9))
+	    )
+	  )
+	(if (and (/= dotpos1 nil) (= /pos1 nil))
+	  (progn
+	    (setq inches (substr off ( + dotpos1 2) 50))
+	    (setq feet (substr off 1  dotpos1 ))
+	    (setq ioff  (atof inches))
+	    (setq ioff (+ ioff (* (atof feet) 12)))
+	    (setq off (rtos (* ioff 0.0254) 2 9))
+	    )
+	  )
+	(if (and (= dotpos1 nil) (= /pos1 nil) (= dotpos2 nil))
+	  (progn
+	   
+	    (setq feet (substr off 1  50))
+	    (setq ioff (* (atof feet) 12))
+	    (setq off (rtos (* ioff 0.0254) 2 9))
+	    )
+	  )
+      )
+    )
+  (if (= units "L")
+    (progn
+      (setq off (atof off))
+      (setq off (rtos (* off 0.201168)))
+      )
+    )
+  (if (= units "DF")
+    (progn
+      (setq off (atof off))
+      (setq off (rtos (* off 0.3048)))
+      )
+    )
+	      
+	      
+
+    ;DRAW LINE 1
+     
+  
+  (setq dist (rtos (atof dist)2 3));remove trailing zeros
+
+  (setq chainlist  (strcat chainlist ","  dist))
+  
+  (if (= dist "0") (progn
+		     (princ "\nDistance of 0 entered")
+		     (exit))
+    )
+  (setq ldist dist)
+  (SETQ lastdist dist)
+  ;(if (= rswitch "T")(progn
+;		       (setq deg (+ (atof deg) 180))
+;		       (if (> deg 360)(setq deg (- deg 360)))
+;		       (setq deg (rtos deg 2 0))
+;		       ))
+  (setq bearing (strcat  deg "d" mins sec))
+
+  ;(setvar "clayer" "Occupations")
+  (setq linetext (strcat "@" dist "<" bearing))
+    (command "line" p1 linetext "")
+    
+  (if (/= comment "")(setq ocomment (strcat "><FieldNote>\"" comment "\"</FieldNote></ReducedObservation>"))(setq ocomment "/>"))
+(SETQ BDINFO (STRCAT "azimuth=\"" obearing "\" horizDistance=\"" ldist "\"" ocomment))
+(SETQ SENT (ENTLAST))
+  (SETQ SENTLIST (ENTGET SENT))
+  (SETQ XDATA (LIST (LIST -3 (LIST "LANDXML" (CONS 1000 BDINFO)))))
+   (setq NEWSENTLIST (APPEND SENTLIST XDATA))
+  (ENTMOD NEWSENTLIST)
+
+ 
+
+ (SETQ RMB (ENTLAST))
+  (SSADD RMB ENTSS)
+
+  
+(SETQ SENT (ENTLAST))
+  (SETQ SENTLIST (ENTGET SENT))
+  (setq sp (CDR(ASSOC 10 sentlist)))
+(setq p1 (CDR(ASSOC 11 sentlist)))
+
+   (if (= rswitch "T")
+  (progn
+    (setq p1 (CDR(ASSOC 10 sentlist)))
+    (setq p2 (CDR(ASSOC 11 sentlist)))
+    (command "move" sent "" p2 p1)
+    ;get last line end point
+(SETQ SENT (ENTLAST))
+  (SETQ SENTLIST (ENTGET SENT))
+(setq p1 (CDR(ASSOC 10 sentlist)))
+    (setq sp (CDR(ASSOC 11 sentlist)))
+    ))
+  
+    (SETQ CP1 (TRANS  sp 0 1))
+    (SETQ CP2 (TRANS  p1 0 1))
+    (SETQ ANG (- (ANGLE CP1 CP2) (* 0.5 pi)))
+    (SETQ DANG (* ANG (/ 180 PI)))
+
+    (IF (AND (> DANG 90) (<= DANG 270)) (PROGN
+					 (SETQ CP1 (TRANS P1 0 1))
+					 (SETQ CP2 (TRANS SP 0 1))
+					 (SETQ ANG (- (ANGLE CP1 CP2) (* 0.5 PI)))
+                                         (SETQ DANG (* ANG (/ 180 PI)))
+					 )
+      )
+
+   
+   
+
+  (if (/= comment "")(setq comment (strcat " "comment)))
+
+  
+   (SETVAR "CLAYER"  "Drafting AFR" )
+  (setq 00pos (polar sp (- (angle cp1 cp2) (* 0.5 pi)) (* 0.7 TH)))
+    (command "insert" "VCH0" "_S" TH 00pos (angtos (ANGLE (trans sp 0 1)(trans p1 0 1)) 1 4))
+    (COMMAND "TEXT" "J" "ML" P1 TH (ANGTOS ANG 1 4) (strcat dist (strcase comment)))
+;label ye old dist
+  (if (or (= units "F")(= units "L")(= units "DF"))
+    (progn
+      (setq textstyle (getvar "textstyle"))
+(SETQ textfont (ENTGET (tblobjname "style" textstyle)))
+(setq theElist (subst (cons 50 (* 20 (/ PI 180)))(assoc 50 theElist) textfont));make ye old distances slanty
+(entmod theElist)
+  (COMMAND "TEXT" "J" "ML" (POLAR P1 (- ANG (* pi 0.5)) (* 1.2 TH)) TH (ANGTOS ANG 1 4) (strcat prevdist))
+  (setq theElist (subst (cons 50 0)(assoc 50 theElist) textfont));set slanty back to straight
+(entmod theElist)
+      ))
+
+  ;DRAW FIRST OFFSET
+  (setq offdeg (rtos (+ (atof deg) 90) 2 0))
+  (setq offbear  (strcat offdeg "d" mins sec))
+
+  ;get xml bearing
+  ;reverse bearing if R
+  (if (= rswitch "T")(setq offbear (- (atof obearing) 90))(setq offbear (+ (atof obearing) 90)))
+;reverse bearing if offset is ngative
+  (if (< (atof off) 0) (setq offbear (+ offbear 180)
+		      off (rtos (* (atof off) -1) 2 5))
+    )
+  (if (> offbear 360)(setq offbear (- offbear 360)))
+  (if (< offbear 0) (setq offbear (+ offbear 360)))
+  (setvar "dimzin" 0)
+  (setq offbear (rtos offbear 2 ))
+  (setvar "dimzin" 8)
+
+  (setvar "clayer" prevlayer)
+  (setq linetext (strcat "@" off "<"  offbear ))
+  (command "line" p1 linetext "")
+
+ 
+  
+  (if (/= offcomment "")(setq ocomment (strcat "><FieldNote>\"" offcomment "\"</FieldNote></ReducedObservation>"))(setq ocomment "/>"))
+(SETQ BDINFO (STRCAT "azimuth=\"" offbear "\" horizDistance=\"" off "\"" ocomment))
+(SETQ SENT (ENTLAST))
+  (SETQ SENTLIST (ENTGET SENT))
+  (SETQ XDATA (LIST (LIST -3 (LIST "LANDXML" (CONS 1000 BDINFO)))))
+   (setq NEWSENTLIST (APPEND SENTLIST XDATA))
+  (ENTMOD NEWSENTLIST)
+
+  (SETQ SENTLIST (ENTGET SENT))
+  
+    (SETQ CP1 (TRANS  (CDR(ASSOC 10 sentlist)) 0 1))
+    (SETQ CP2 (TRANS  (CDR(ASSOC 11 sentlist)) 0 1))
+    (SETQ oANG (- (ANGLE CP1 CP2) (* 0.5 pi)))
+    (SETQ DANG (* oANG (/ 180 PI)))
+
+    (IF (AND (> DANG 90) (<= DANG 270)) (PROGN
+					 (SETQ CP1 (TRANS (CDR(ASSOC 11 sentlist)) 0 1))
+					 (SETQ CP2 (TRANS (CDR(ASSOC 10 sentlist)) 0 1))
+					 (SETQ oANG (- (ANGLE CP1 CP2) (* 0.5 PI)))
+                                         (SETQ DANG (* oANG (/ 180 PI)))
+					 )
+      )
+
+   
+   
+
+  (if (/= offcomment "")(setq offcomment (strcat " "offcomment)))
+
+  
+   (SETVAR "CLAYER"  "Drafting AFR" )
+  (setq 00pos (polar (TRANS (CDR(ASSOC 10 sentlist)) 0 1) (- (angle cp1 cp2) (* 0.5 pi)) (* 0.7 TH)))
+    (command "insert" "VCH0" "_S" TH 00pos (angtos (ANGLE (TRANS (CDR(ASSOC 10 sentlist)) 0 1)(TRANS (CDR(ASSOC 11 sentlist)) 0 1)) 1 4))
+    (COMMAND "TEXT" "J" "ML" (TRANS (CDR(ASSOC 11 sentlist)) 0 1) TH (ANGTOS oANG 1 4) (strcat off (strcase offcomment)))
+;label ye old dist
+  (if (or (= units "F")(= units "L")(= units "DF"))
+    (progn
+      (setq textstyle (getvar "textstyle"))
+(SETQ textfont (ENTGET (tblobjname "style" textstyle)))
+(setq theElist (subst (cons 50 (* 20 (/ PI 180)))(assoc 50 theElist) textfont));make ye old distances slanty
+(entmod theElist)
+  (COMMAND "TEXT" "J" "ML" (POLAR (TRANS (CDR(ASSOC 11 sentlist)) 0 1) (- oANG (* pi 0.5)) (* 1.2 TH)) TH (ANGTOS oANG 1 4) (strcat yeoldoff))
+  (setq theElist (subst (cons 50 0)(assoc 50 theElist) textfont));set slanty back to straight
+(entmod theElist)
+      ))
+	 
+    
+  
+  
+
+  
+(setvar "clayer" prevlayer)
+
+  ;GET 2ND+ LINE INFO
+  (while (> 1 0) (progn
+		  
+
+        (setq dist (getstring T (strcat "\nChainage " units ":")))
+(SETQ off (getstring T (strcat "\nOffset "units":")))
+(setq yeoldoff off)
+    (setq spcpos1 (vl-string-position 32 off))
+	(if (= spcpos1 nil)(setq offcomment "")(progn
+					      (setq offcomment (substr off ( + spcpos1 2) ))
+					      (setq off (substr off 1  spcpos1 ))
+					      )
+	  )
+	(setq yeoldoff off)
+		   
+		   (setq prevdist dist)
+
+
+ ;APPLY ALL CORRECTIONS AND EXTRACT INFORMATION FROM USER INPUT
+
+
+	
+
+  ;look for line comment
+  (setq spcpos1 (vl-string-position 32 dist 0))
+	(if (= spcpos1 nil)(setq comment "")(progn
+					      (setq comment (substr dist ( + spcpos1 2) 50))
+					      (setq dist (substr dist 1  spcpos1 ))
+					      )
+	  )
+
+
+  
+    (if (= units "F")
+      (progn
+	 (setq dotpos1 (vl-string-position 46 dist 0)) 
+		    
+	(if (= dotpos1 nil)(setq dotpos2 nil)(setq dotpos2 (vl-string-position 46 dist (+ dotpos1 1))))
+	(setq /pos1 (vl-string-position 47 dist 0))
+	(if (/= /pos1 nil)
+	  (progn
+	    (setq den (substr dist ( + /pos1 2) 50))
+	    (setq num (substr dist ( + dotpos2 2) (- (- /pos1 dotpos2) 1)))
+	    (setq idist (/ (atof num) (atof den)))
+	    (setq inches (substr dist (+ dotpos1 2) (- (- dotpos2 dotpos1) 1)))
+	    (setq idist (+ idist (atof inches)))
+	    (setq feet (substr dist 1  dotpos1 ))
+	    (setq idist (+ idist (* (atof feet) 12)))
+	    (setq dist (rtos (* idist 0.0254) 2 9))
+	    )
+	  )
+	(if (and (/= dotpos1 nil) (= /pos1 nil))
+	  (progn
+	    (setq inches (substr dist ( + dotpos1 2) 50))
+	    (setq feet (substr dist 1  dotpos1 ))
+	    (setq idist  (atof inches))
+	    (setq idist (+ idist (* (atof feet) 12)))
+	    (setq dist (rtos (* idist 0.0254) 2 9))
+	    )
+	  )
+	(if (and (= dotpos1 nil) (= /pos1 nil) (= dotpos2 nil))
+	  (progn
+	   
+	    (setq feet (substr dist 1  50))
+	    (setq idist (* (atof feet) 12))
+	    (setq dist (rtos (* idist 0.0254) 2 9))
+	    )
+	  )
+      )
+    )
+  (if (= units "L")
+    (progn
+      (setq dist (atof dist))
+      (setq dist (rtos (* dist 0.201168)))
+      )
+    )
+	(if (= units "DF")
+    (progn
+      (setq dist (atof dist))
+      (setq dist (rtos (* dist 0.3048)))
+      )
+    )
+
+	;offset
+   (if (= units "F")
+      (progn
+	 (setq dotpos1 (vl-string-position 46 off 0)) 
+		    
+	(if (= dotpos1 nil)(setq dotpos2 nil)(setq dotpos2 (vl-string-position 46 off (+ dotpos1 1))))
+	(setq /pos1 (vl-string-position 47 off 0))
+	(if (/= /pos1 nil)
+	  (progn
+	    (setq den (substr off ( + /pos1 2) 50))
+	    (setq num (substr off ( + dotpos2 2) (- (- /pos1 dotpos2) 1)))
+	    (setq ioff (/ (atof num) (atof den)))
+	    (setq inches (substr off (+ dotpos1 2) (- (- dotpos2 dotpos1) 1)))
+	    (setq ioff (+ ioff (atof inches)))
+	    (setq feet (substr off 1  dotpos1 ))
+	    (setq ioff (+ ioff (* (atof feet) 12)))
+	    (setq off (rtos (* ioff 0.0254) 2 9))
+	    )
+	  )
+	(if (and (/= dotpos1 nil) (= /pos1 nil))
+	  (progn
+	    (setq inches (substr off ( + dotpos1 2) 50))
+	    (setq feet (substr off 1  dotpos1 ))
+	    (setq ioff  (atof inches))
+	    (setq ioff (+ ioff (* (atof feet) 12)))
+	    (setq off (rtos (* ioff 0.0254) 2 9))
+	    )
+	  )
+	(if (and (= dotpos1 nil) (= /pos1 nil) (= dotpos2 nil))
+	  (progn
+	   
+	    (setq feet (substr off 1  50))
+	    (setq ioff (* (atof feet) 12))
+	    (setq off (rtos (* ioff 0.0254) 2 9))
+	    )
+	  )
+      )
+    )
+  (if (= units "L")
+    (progn
+      (setq off (atof off))
+      (setq off (rtos (* off 0.201168)))
+      )
+    )
+  (if (= units "DF")
+    (progn
+      (setq off (atof off))
+      (setq off (rtos (* off 0.3048)))
+      )
+    )
+	      
+	      
+
+
+	
+		;DRAW LINE 2+
+
+		    (setq dist (rtos (atof dist)2 3));remove trailing zeros
+
+	
+		   (if (or (= dist "")(= dist "0")) (progn ;if no dist run exiter, join polylines, label bearing
+				(command "pedit" "m" entss "" "y" "j" "" "")
+
+			
+(SETQ SENT (ENTLAST))
+  (SETQ SENTLIST (ENTGET SENT))
+  (SETQ XDATA (LIST (LIST -3 (LIST "LANDXML" (CONS 1000 chainlist)))))
+   (setq NEWSENTLIST (APPEND SENTLIST XDATA))
+(SETQ NEWSENTLIST (subst (cons 8 "Occupations")(assoc 8 NEWSENTLIST) NEWSENTLIST ))
+  (ENTMOD NEWSENTLIST)
+
+				(if (= rswitch "T") (command "reverse" sent ""))
+				
+				
+				
+ (SETQ CP1 (TRANS  sp 0 1))
+    (SETQ CP2 (TRANS  p1 0 1))
+    (SETQ ANG (ANGLE CP1 CP2))
+    (SETQ DANG (* ANG (/ 180 PI)))
+
+    (IF (AND (> DANG 90) (<= DANG 270)) (PROGN
+					 (SETQ CP1 (TRANS p1 0 1))
+					 (SETQ CP2 (TRANS sp 0 1))
+					 (SETQ ANG (ANGLE CP1 CP2))
+                                         (SETQ DANG (* ANG (/ 180 PI)))
+					 )
+      )
+ (SETQ MPE (/ (+ (CAR CP1 ) (CAR CP2)) 2))
+    (SETQ MPN (/ (+ (CADR CP1 ) (CADR CP2)) 2))
+    (SETQ MP (LIST MPE MPN))
+    (SETQ BPOS (POLAR MP (+ ANG (* 0.5 PI)) TH))
+    (SETQ DPOS (POLAR MP (- ANG (* 0.5 PI)) TH))
+    (SETQ BTS (vl-string-subst  "°" "d" bearing))
+
+  (if (/= comment "")(setq comment (strcat " "comment)))
+
+  (setq prevlayer (getvar "CLAYER"))
+   (SETVAR "CLAYER"  "Drafting AFR" )
+    (COMMAND "TEXT" "J" "MC" BPOS TH (ANGTOS ANG 1 4) BTS)
+				
+
+				(setvar "clayer" prevlayer)		      
+		     
+		     (exit))
+    );if no dist
+	
+  (setq ldist dist)
+	(setq drawdist (rtos (- (atof dist) (atof lastdist))))
+	   (setq lastdist drawdist)
+    
+
+  (setq linetext (strcat "@" drawdist "<" bearing))
+	
+;(SETVAR "CLAYER"  "Occupations" )
+  (command "line" p1 linetext "")
+ (if (/= comment "")(setq ocomment (strcat "><FieldNote>\"" comment "\"</FieldNote></ReducedObservation>"))(setq ocomment "/>"))
+(SETQ BDINFO (STRCAT "azimuth=\"" obearing "\" horizDistance=\"" drawdist "\""  ocomment))
+(SETQ SENT (ENTLAST))
+  (SETQ SENTLIST (ENTGET SENT))
+  (SETQ XDATA (LIST (LIST -3 (LIST "LANDXML" (CONS 1000 BDINFO)))))
+   (setq NEWSENTLIST (APPEND SENTLIST XDATA))
+  (ENTMOD NEWSENTLIST)
+
+
+	
+	
+	(setq lastdist dist)
+	(setq chainlist  (strcat chainlist ","  drawdist))
+
+	(SETQ RMB (ENTLAST))
+  (SSADD RMB ENTSS)
+
+;get last line end point
+(SETQ SENT (ENTLAST))
+  (SETQ SENTLIST (ENTGET SENT))
+(setq p1 (CDR(ASSOC 11 sentlist)))
+
+		(if (= rswitch "T")
+  (progn
+    (setq p1 (CDR(ASSOC 10 sentlist)))
+    (setq p2 (CDR(ASSOC 11 sentlist)))
+    (command "move" sent "" p2 p1)
+    ;get last line end point
+(SETQ SENT (ENTLAST))
+  (SETQ SENTLIST (ENTGET SENT))
+(setq p1 (CDR(ASSOC 10 sentlist)))    
+    ))
+    
+         
+
+  (if (/= comment "")(setq comment (strcat " "comment)))
+
+  
+   (SETVAR "CLAYER"  "Drafting AFR" )
+   
+    (COMMAND "TEXT" "J" "ML" P1 TH (ANGTOS ANG 1 4) (strcat dist (strcase comment)))
+
+	;label ye old dist
+	 (if (or (= units "F")(= units "L")(= units "DF"))
+    (progn
+      (setq textstyle (getvar "textstyle"))
+(SETQ textfont (ENTGET (tblobjname "style" textstyle)))
+(setq theElist (subst (cons 50 (* 20 (/ PI 180)))(assoc 50 theElist) textfont));make ye old distances slanty
+(entmod theElist)
+  (COMMAND "TEXT" "J" "ML" (POLAR P1 (- ANG (* pi 0.5)) (* 1.2 TH)) TH (ANGTOS ANG 1 4) (strcat prevdist))
+  (setq theElist (subst (cons 50 0)(assoc 50 theElist) textfont));set slanty back to straight
+(entmod theElist)
+      ))
+	   
+(setvar "clayer" prevlayer)
+
+
+
+
+
+
+	 ;DRAW OFFSET 2+
+  (setq offdeg (rtos (+ (atof deg) 90) 2 0))
+  (setq offbear  (strcat offdeg "d" mins sec))
+
+  ;get xml bearing
+  ;reverse bearing if R
+  (if (= rswitch "T")(setq offbear (- (atof obearing) 90))(setq offbear (+ (atof obearing) 90)))
+;reverse bearing if offset is ngative
+  (if (< (atof off) 0) (setq offbear (+ offbear 180)
+		      off (rtos (* (atof off) -1) 2 3))
+    )
+  (if (> offbear 360)(setq offbear (- offbear 360)))
+  (if (< offbear 0) (setq offbear (+ offbear 360)))
+  (setvar "dimzin" 0)
+  (setq offbear (rtos offbear 2 ))
+  (setvar "dimzin" 8)
+
+  (setvar "clayer" prevlayer)
+  (setq linetext (strcat "@" off "<"  offbear ))
+  (command "line" p1 linetext "")
+
+   
+  (if (/= offcomment "")(setq ocomment (strcat "><FieldNote>\"" offcomment "\"</FieldNote></ReducedObservation>"))(setq ocomment "/>"))
+(SETQ BDINFO (STRCAT "azimuth=\"" offbear "\" horizDistance=\"" off "\"" ocomment))
+(SETQ SENT (ENTLAST))
+  (SETQ SENTLIST (ENTGET SENT))
+  (SETQ XDATA (LIST (LIST -3 (LIST "LANDXML" (CONS 1000 BDINFO)))))
+   (setq NEWSENTLIST (APPEND SENTLIST XDATA))
+  (ENTMOD NEWSENTLIST)
+
+  (SETQ SENTLIST (ENTGET SENT))
+  
+    (SETQ CP1 (TRANS  (CDR(ASSOC 10 sentlist)) 0 1))
+    (SETQ CP2 (TRANS  (CDR(ASSOC 11 sentlist)) 0 1))
+    (SETQ oANG (- (ANGLE CP1 CP2) (* 0.5 pi)))
+    (SETQ DANG (* oANG (/ 180 PI)))
+
+    (IF (AND (> DANG 90) (<= DANG 270)) (PROGN
+					 (SETQ CP1 (TRANS (CDR(ASSOC 11 sentlist)) 0 1))
+					 (SETQ CP2 (TRANS (CDR(ASSOC 10 sentlist)) 0 1))
+					 (SETQ oANG (- (ANGLE CP1 CP2) (* 0.5 PI)))
+                                         (SETQ DANG (* oANG (/ 180 PI)))
+					 )
+      )
+
+   
+   
+
+  (if (/= offcomment "")(setq offcomment (strcat " "offcomment)))
+
+  
+   (SETVAR "CLAYER"  "Drafting AFR" )
+  (setq 00pos (polar (TRANS (CDR(ASSOC 10 sentlist)) 0 1) (- (angle cp1 cp2) (* 0.5 pi)) (* 0.7 TH)))
+    (command "insert" "VCH0" "_S" TH 00pos (angtos (ANGLE (TRANS (CDR(ASSOC 10 sentlist)) 0 1)(TRANS (CDR(ASSOC 11 sentlist)) 0 1)) 1 4))
+    (COMMAND "TEXT" "J" "ML" (TRANS (CDR(ASSOC 11 sentlist)) 0 1) TH (ANGTOS oANG 1 4) (strcat off (strcase offcomment)))
+;label ye old dist
+  (if (or (= units "F")(= units "L")(= units "DF"))
+    (progn
+      (setq textstyle (getvar "textstyle"))
+(SETQ textfont (ENTGET (tblobjname "style" textstyle)))
+(setq theElist (subst (cons 50 (* 20 (/ PI 180)))(assoc 50 theElist) textfont));make ye old distances slanty
+(entmod theElist)
+  (COMMAND "TEXT" "J" "ML" (POLAR P1 (- oANG (* pi 0.5)) (* 1.2 TH)) TH (ANGTOS oANG 1 4) (strcat yeoldoff))
+  (setq theElist (subst (cons 50 0)(assoc 50 theElist) textfont));set slanty back to straight
+(entmod theElist)
+      ))
+
+
+
+
+	
+		   
+  
+);P
+    );WHILE 1>0
+  );DEFUN
+
+
+
+
 ;-----------------------------------------------------------------------------Assign Polyline to CHAINAGE----------------------------------------------------
 (defun C:XAC (/)
 
@@ -6363,6 +7271,8 @@
     (SETQ LLEN CHAINDIST)
 	  
 ;ROUND DISTANCES
+    (if (= qround "YES")
+      (progn
 
     (IF (< LLEN DISTMAX1) (SETQ DROUND DRND1))
     (IF (AND (> LLEN DISTMAX1)(< LLEN DISTMAX2)) (SETQ DROUND DRND2))
@@ -6372,6 +7282,7 @@
     (SETQ LFP (- (/ LLEN DROUND) LIP))
     (IF (>= LFP 0.5 ) (SETQ LIP (+ LIP 1)))
     (SETQ LLEN (* LIP DROUND))
+    ))
 
     (SETQ LDIST (RTOS LLEN 2 3))
     
@@ -6837,6 +7748,8 @@
   
 ;ROUND DISTANCES
 
+  (if (= qround "YES")
+    (progn
     (IF (< LLEN DISTMAX1) (SETQ DROUND DRND1))
     (IF (AND (> LLEN DISTMAX1)(< LLEN DISTMAX2)) (SETQ DROUND DRND2))
     (IF (> LLEN DISTMAX2)(SETQ DROUND DRND3))
@@ -6845,6 +7758,616 @@
     (SETQ LFP (- (/ LLEN DROUND) LIP))
     (IF (>= LFP 0.5 ) (SETQ LIP (+ LIP 1)))
     (SETQ LLEN (* LIP DROUND))
+    
+
+    (SETQ LDIST (RTOS LLEN 2 3))
+    ))
+  
+
+(setq chaindist LLEN)
+(setq chainlist  (strcat chainlist ","  LDIST))
+  
+    (SETQ CP1 (TRANS  sp 0 1))
+    (SETQ CP2 (TRANS  p1 0 1))
+    (SETQ ANG (- (ANGLE CP1 CP2) (* 0.5 pi)))
+    (SETQ DANG (* ANG (/ 180 PI)))
+
+    (IF (AND (> DANG 90) (<= DANG 270)) (PROGN
+					 (SETQ CP1 (TRANS P1 0 1))
+					 (SETQ CP2 (TRANS SP 0 1))
+					 (SETQ ANG (- (ANGLE CP1 CP2) (* 0.5 PI)))
+                                         (SETQ DANG (* ANG (/ 180 PI)))
+					 )
+      )
+
+   
+  
+   (SETVAR "CLAYER"  "Drafting AFR" )
+  (setq 00pos (polar sp (- (angle cp1 cp2) (* 0.5 pi)) (* 0.7 TH)))
+    (command "insert" "VCH0" "_S" TH (trans 00pos 0 1) (angtos (ANGLE (trans sp 0 1)(trans p1 0 1)) 1 4))
+    (COMMAND "TEXT" "J" "ML" (trans P1 0 1) TH (ANGTOS ANG 1 4)  ldist )
+
+  ;continue for reamining segements
+  (SETQ COUNT 1)
+  (REPEAT (- (LENGTH PTLIST) 2)
+    (setq p1 (nth count ptlist))
+    (setq p2 (nth (+ count 1) ptlist))
+    (setq dist (distance p1 p2))
+    (setq chaindist (+ chaindist dist))
+    (SETQ LLEN CHAINDIST)
+	  
+;ROUND DISTANCES
+
+    (IF (< LLEN DISTMAX1) (SETQ DROUND DRND1))
+    (IF (AND (> LLEN DISTMAX1)(< LLEN DISTMAX2)) (SETQ DROUND DRND2))
+    (IF (> LLEN DISTMAX2)(SETQ DROUND DRND3))
+			
+    (SETQ LIP (FIX (/ LLEN DROUND)))
+    (SETQ LFP (- (/ LLEN DROUND) LIP))
+    (IF (>= LFP 0.5 ) (SETQ LIP (+ LIP 1)))
+    (SETQ LLEN (* LIP DROUND))
+
+    (SETQ LDIST (RTOS LLEN 2 3))
+    
+    ;(IF (< LLEN 1) (SETQ DTS (STRCAT "0" DTS)))
+    
+    (COMMAND "TEXT" "J" "ML" (trans P2 0 1) TH (ANGTOS ANG 1 4) ldist )
+    (SETQ COUNT (+ COUNT 1))
+
+    (setq chainlist  (strcat chainlist ","  (rtos DIST 2 3)))
+    
+    );R
+
+
+
+
+   (SETQ ANG (ANGLE  SP  P2 ))
+
+  (SETQ BEARING (ANGTOS ANG 1 4));REQUIRED FOR ELSE ROUND
+  (setq bearing (vl-string-subst "d" (chr 176) bearing));added for BricsCAD changes degrees to "d"
+    
+
+  (IF (= QROUND "YES")(PROGN
+  
+ 
+
+    ;ASSIGN ROUNDING FOR ANGLES BASED ON DISTANCE
+    (IF (< CHAINDIST MAXLEN1) (SETQ ROUND BRND1))
+    (IF (AND (> CHAINDIST MAXLEN1)(< CHAINDIST MAXLEN2)) (SETQ ROUND BRND2))
+    (IF (> CHAINDIST MAXLEN2)(SETQ ROUND BRND3))			
+			
+    ;(IF (> LLEN 100) (SETQ ROUND 1))
+
+   
+    ;GET ANGLE DELIMIETERS
+    (SETQ SANG (ANGTOS ANG 1 4))
+    (setq sang (vl-string-subst "d" (chr 176) sang));added for BricsCAD changes degrees to "d"
+    (setq CHRDPOS (vl-string-position 100 SANG 0))
+    (setq MINPOS (vl-string-position 39 SANG 0))
+    (setq SECPOS (vl-string-position 34 SANG 0))
+
+    ;PARSE ANGLE
+    (setq DEG  (atof (substr SANG 1  CHRDPOS )))
+    (setq MINS  (atof (substr SANG (+ CHRDPOS 2)  (-(- MINPOS CHRDPOS)1))))
+    (setq SEC  (atof (substr SANG (+ MINPOS 2)  (-(- SECPOS MINPOS )1))))
+
+   
+;ROUND ANGLE, NOTE SECONDS REMOVED
+    (IF (and (= ROUND 60)(< SEC 30)) (SETQ SEC 0))
+    (IF (and (= ROUND 60)(>= SEC 30)) (SETQ SEC 0
+					    MINS (+ MINS 1)))					  
+    (IF (/= ROUND 60) (PROGN
+			(SETQ SIP (FIX (/ SEC ROUND)))
+			(SETQ SFP (- (/  SEC ROUND) SIP))
+			(IF (>= SFP 0.5) (SETQ SIP (+ SIP 1)))
+			(SETQ SEC (* SIP ROUND))
+			)
+      )
+
+    
+		 
+    
+;STRING ANGLES
+    (SETQ DEG (RTOS DEG 2 0))
+    (SETQ MINS (RTOS MINS 2 0))
+    (SETQ SEC (RTOS SEC 2 0))
+    
+;INCREMENT IF SECONDS ROUNDED TO 60
+    (IF (= SEC  "60")
+      (PROGN
+	(SETQ SEC "00")
+	(SETQ MINS (RTOS (+ (ATOF MINS ) 1) 2 0))
+	)
+      )
+;INCREMENT IF MINUTES ROUNDED TO 60
+    (IF (= MINS "60")
+      (PROGN
+	(SETQ MINS "00")
+	(SETQ DEG (RTOS (+ (ATOF DEG ) 1) 2 0))
+	)
+      )
+;FIX IF INCREMENTING PUSHES DEG PAST 360    
+    (IF (= DEG "360")(SETQ DEG "0"))
+;ADD ZEROS TO SINGLE NUMBERS	
+ (IF (= (STRLEN MINS) 1)(SETQ MINS (STRCAT "0" MINS)))
+  (IF (= (STRLEN SEC) 1)(SETQ SEC (STRCAT "0" SEC)))
+
+;TRUNCATE BEARINGS IF 00'S
+  (IF (AND (= MINS "00") (= SEC "00")) (SETQ MINSS ""
+					     MINS ""
+					     SECS ""
+					     SEC "")
+        (SETQ MINSS(STRCAT MINS "'")
+	  SECS (STRCAT SEC "\""))
+	  )
+    (IF (= SEC "00")(SETQ SECS ""
+			    SEC ""))
+
+			
+
+    ;CONCATENATE BEARING
+    (SETQ BEARING (STRCAT DEG "d" MINSS SECS ))
+
+			(IF (or (/= sec "")(/= MINS ""))(SETQ DEG (STRCAT DEG ".")))
+
+  (SETQ LBEARING (STRCAT DEG MINS SEC))
+
+			
+    
+
+			);P&IF
+
+
+(PROGN;ELSE
+
+  
+
+  (SETQ DPOS (vl-string-position 100 BEARING 0))
+  (setq Wpos (vl-string-position 39 BEARING 0))
+  (setq WWpos (vl-string-position 34 BEARING 0))
+
+    (setq DEG (substr BEARING 1 Dpos))
+      (setq MINS (substr BEARING (+ Dpos 2) (- (- WPOS DPOS) 1)))
+      (setq SEC (substr BEARING (+ Wpos 2) (- (- WWpos Wpos) 1)))
+
+  (IF (= (STRLEN MINS) 1)(SETQ MINS (STRCAT "0" MINS)))
+  (IF (= (STRLEN SEC) 1)(SETQ SEC (STRCAT "0" SEC)))
+  
+  (IF (AND (= MINS "00") (= SEC "00")) (SETQ MINSS ""
+					     SECS ""
+					     MINS ""
+					     SEC "")
+    (SETQ MINSS(STRCAT MINS "'")
+	  SECS (STRCAT SEC "\""))
+	  	  )
+  (IF (= SECS "00\"")(SETQ SECS ""
+			   SEC ""))
+  
+  (SETQ BEARING (STRCAT DEG "d" MINSS SECS ))
+
+  	(IF (or (/= sec "")(/= MINS ""))(SETQ DEG (STRCAT DEG ".")))
+
+  
+  ));PELSE&IF
+
+
+  
+    				
+ (SETQ CP1 (TRANS  sp 0 1))
+    (SETQ CP2 (TRANS  p2 0 1))
+    (SETQ ANG (ANGLE CP1 CP2))
+    (SETQ DANG (* ANG (/ 180 PI)))
+
+    (IF (AND (> DANG 90) (<= DANG 270)) (PROGN
+					 (SETQ CP1 (TRANS p2 0 1))
+					 (SETQ CP2 (TRANS sp 0 1))
+					 (SETQ ANG (ANGLE CP1 CP2))
+                                         (SETQ DANG (* ANG (/ 180 PI)))
+					 )
+      )
+ (SETQ MPE (/ (+ (CAR CP1 ) (CAR CP2)) 2))
+    (SETQ MPN (/ (+ (CADR CP1 ) (CADR CP2)) 2))
+    (SETQ MP (LIST MPE MPN))
+    (SETQ BPOS (POLAR MP (+ ANG (* 0.5 PI)) TH))
+    (SETQ DPOS (POLAR MP (- ANG (* 0.5 PI)) TH))
+    (SETQ BTS (vl-string-subst  "°" "d" bearing))
+
+ 
+  (setq prevlayer (getvar "CLAYER"))
+   (SETVAR "CLAYER"  "Drafting AFR" )
+    (COMMAND "TEXT" "J" "MC" BPOS TH (ANGTOS ANG 1 4) BTS)
+
+
+  (SETQ XDATA (LIST (LIST -3 (LIST "LANDXML" (CONS 1000 chainlist)))))
+   (setq NEWSENTLIST (APPEND SENTLIST XDATA))
+  (ENTMOD NEWSENTLIST)
+  
+  (setvar "clayer" prevlayer)
+
+  )
+
+
+
+
+
+
+
+
+;-----------------------------------------------------------------------------CREATE CHAINAGE AND OFFSETS----------------------------------------------------
+(defun C:XCHO (/)
+
+  (setq chainlist "00")
+  (setq prevlayer (getvar "CLAYER"))
+
+ (SETQ SENT (CAR (ENTSEL "\nSelect Occupation Polyline:")))
+  (setq bearing (getstring "\nBearing of line(or enter to select line):"))
+  (if (= bearing "")(progn
+		      (SETQ BENT (entget (CAR (ENTSEL "\nSelect Line:"))))
+		      (setq p1 (cdr (assoc 10 bent)))
+		      (setq p2 (cdr (assoc 11 bent)))
+		       (SETQ ANG (ANGLE  P1  P2 ))
+
+  (SETQ BEARING (ANGTOS ANG 1 4));REQUIRED FOR ELSE ROUND
+  (setq bearing (vl-string-subst "d" (chr 176) bearing));added for BricsCAD changes degrees to "d"
+
+		      ;adding bearing calculator
+		      )
+
+		      (progn
+
+     ;reverse
+  (if (or (= (substr bearing 1 1 ) "r") (= (substr bearing 1 1 ) "R" ))
+    (progn
+      (setq bearing (substr bearing 2 50))
+      (setq rswitch "T")
+      )
+     (setq rswitch "F")
+    )
+
+;look for cardinals
+  (setq card1 ""
+	card2 "")
+  (IF (OR (= (substr bearing 1 1 ) "n") (= (substr bearing 1 1 ) "N" )
+	  (= (substr bearing 1 1 ) "s" )(= (substr bearing 1 1 ) "S" )
+	  (= (substr bearing 1 1 ) "e" )(= (substr bearing 1 1 ) "E" )
+	  (= (substr bearing 1 1 ) "w" )(= (substr bearing 1 1 ) "W" ))
+(progn
+    (setq card1 (substr bearing 1 1))
+    (setq card2 (substr bearing (strlen bearing) 1))
+    (setq bearing (substr bearing 2 (- (strlen bearing )2)))
+  )
+    )
+    
+  
+(if (/= (vl-string-position 46 bearing 0) nil ) (PROGN
+  (setq dotpt1 (vl-string-position 46 bearing 0))
+  (setq deg  (substr bearing 1  dotpt1 ))
+  (SETQ mins  (strcat (substr bearing (+ dotpt1 2) 2) (chr 39)))
+  (setq sec  (substr bearing (+ dotpt1 4) 10))
+
+  
+  (if (> (strlen sec) 2) (setq sec (strcat (substr sec 1 2) "." (substr sec 3 10))))
+  (if (= (strlen sec) 0) (setq sec "") (setq sec (strcat sec (chr 34))))
+
+  
+  (if (or
+	(= (strlen sec) 2)
+	(= (strlen mins) 2)
+	(> (atof mins) 60)
+	(> (atof sec) 60)
+	(> (atof deg) 360)
+	)
+    (alert (strcat "That bearing looks a little funky - " bearing)))
+  
+  
+  );P
+	(progn
+	  (setq deg bearing)
+	  (setq mins "")
+	  (setq sec "")
+	  );p else
+  
+  );IF
+
+ ;correct cardinals
+
+    (IF  (and (or (= card1 "n")(= card1 "N")(= card1 "s")(= card1 "S"))(and (/= card2 "w")(/= card2 "W")(/= card2 "e")(/= card2 "E")))
+	  (alert (strcat "Cardinal missing E or W"))
+    )
+  
+  (if (and (or (= card1 "n")(= card1 "N"))(or (= card2 "w")(= card2 "W")))
+    (progn
+      (setq deg (rtos (- 360 (atof deg)) 2 0))
+      (if (< 0 (atof mins))(progn
+			     (setq mins (strcat (rtos (- 60 (atof mins)) 2 0) (chr 39)))
+			     (setq deg (rtos (- (atof deg) 1) 2 0))
+			     (if (< (atof deg) 0)(setq deg (rtos (+ (atof deg) 360) 2 0)))
+				)
+	     )
+	(if (< 0 (atof sec))
+	       (progn
+		 (setq sec (strcat (rtos (- 60 (atof sec)) 2 0) (chr 34)))
+		 (if (= 0 (atof mins)) (setq deg (rtos (- (atof deg) 1) 2 0)))
+		 (setq mins (strcat (rtos (- (atof mins) 1) 2 0) (chr 39)))
+	       
+		 (if (< (atof deg) 0)(setq deg (rtos (+ (atof deg) 360) 2 0)))
+		 (if (< (atof mins) 0)(setq mins (strcat (rtos (+ (atof mins) 60) 2 0)(chr 39))))
+		 )
+	  )
+      	           
+(if (or (and (< (atof mins) 10)(/= 0 (atof mins))) (= mins "0'")) (setq mins (strcat "0" mins)))
+(if (and (< (atof sec) 10)(/= 0 (atof sec))) (setq sec (strcat "0" sec)))
+		 
+      )
+    );NW
+
+		   
+
+		   (if (and (or (= card1 "w")(= card1 "W"))(or (= card2 "s")(= card2 "S")))
+    (progn
+      (setq deg (rtos (- 270 (atof deg)) 2 0))
+      (if (< 0 (atof mins))(progn
+			     (setq mins (strcat (rtos (- 60 (atof mins)) 2 0) (chr 39)))
+			     (setq deg (rtos (- (atof deg) 1) 2 0))
+			     (if (< (atof deg) 0)(setq deg (rtos (+ (atof deg) 360) 2 0)))
+				)
+	     )
+	(if (< 0 (atof sec))
+	       (progn
+		 (setq sec (strcat (rtos (- 60 (atof sec)) 2 0) (chr 34)))
+		 (if (= 0 (atof mins)) (setq deg (rtos (- (atof deg) 1) 2 0)))
+		 (setq mins (strcat (rtos (- (atof mins) 1) 2 0) (chr 39)))
+	       
+		 (if (< (atof deg) 0)(setq deg (rtos (+ (atof deg) 360) 2 0)))
+		 (if (< (atof mins) 0)(setq mins (strcat (rtos (+ (atof mins) 60) 2 0)(chr 39))))
+		 )
+	  )
+      	           
+(if (or (and (< (atof mins) 10)(/= 0 (atof mins))) (= mins "0'")) (setq mins (strcat "0" mins)))
+(if (and (< (atof sec) 10)(/= 0 (atof sec))) (setq sec (strcat "0" sec)))
+		 
+      )
+    );WS
+
+		   
+		   (if (and (or (= card1 "e")(= card1 "E"))(or (= card2 "n")(= card2 "N")))
+    (progn
+      (setq deg (rtos (- 90 (atof deg)) 2 0))
+      (if (< 0 (atof mins))(progn
+			     (setq mins (strcat (rtos (- 60 (atof mins)) 2 0) (chr 39)))
+			     (setq deg (rtos (- (atof deg) 1) 2 0))
+			     (if (< (atof deg) 0)(setq deg (rtos (+ (atof deg) 360) 2 0)))
+				)
+	     )
+	(if (< 0 (atof sec))
+	       (progn
+		 (setq sec (strcat (rtos (- 60 (atof sec)) 2 0) (chr 34)))
+		 (if (= 0 (atof mins)) (setq deg (rtos (- (atof deg) 1) 2 0)))
+		 (setq mins (strcat (rtos (- (atof mins) 1) 2 0) (chr 39)))
+	       
+		 (if (< (atof deg) 0)(setq deg (rtos (+ (atof deg) 360) 2 0)))
+		 (if (< (atof mins) 0)(setq mins (strcat (rtos (+ (atof mins) 60) 2 0)(chr 39))))
+		 )
+	  )
+      	           
+(if (or (and (< (atof mins) 10)(/= 0 (atof mins))) (= mins "0'")) (setq mins (strcat "0" mins)))
+(if (and (< (atof sec) 10)(/= 0 (atof sec))) (setq sec (strcat "0" sec)))
+		 
+      )
+    );EN
+
+  (if (and (or (= card1 "s")(= card1 "S"))(or (= card2 "e")(= card2 "E")))
+    (progn
+      (setq deg (rtos (- 180 (atof deg)) 2 0))
+      (if (< 0 (atof mins))(progn
+			     (setq mins (strcat (rtos (- 60 (atof mins)) 2 0) (chr 39)))
+			     (setq deg (rtos (- (atof deg) 1) 2 0))
+			     (if (< (atof deg) 0)(setq deg (rtos (+ (atof deg) 360) 2 0)))
+				)
+	     )
+	(if (< 0 (atof sec))
+	       (progn
+		 (setq sec (strcat (rtos (- 60 (atof sec)) 2 0) (chr 34)))
+		 (if (= 0 (atof mins)) (setq deg (rtos (- (atof deg) 1) 2 0)))
+		 (setq mins (strcat (rtos (- (atof mins) 1) 2 0) (chr 39)))
+	       
+		 (if (< (atof deg) 0)(setq deg (rtos (+ (atof deg) 360) 2 0)))
+		 (if (< (atof mins) 0)(setq mins (strcat (rtos (+ (atof mins) 60) 2 0)(chr 39))))
+		 )
+	  )
+      	           
+(if (or (and (< (atof mins) 10)(/= 0 (atof mins))) (= mins "0'")) (setq mins (strcat "0" mins)))
+(if (and (< (atof sec) 10)(/= 0 (atof sec))) (setq sec (strcat "0" sec)))
+		 
+      )
+    );SE
+
+  (if (and (or (= card1 "s")(= card1 "S"))(or (= card2 "w")(= card2 "W")))
+    (progn
+      (setq deg (rtos (+ 180 (atof deg)) 2 0))
+      
+      )
+    );SW
+
+		    (if (and (or (= card1 "w")(= card1 "W"))(or (= card2 "n")(= card2 "N")))
+    (progn
+      (setq deg (rtos (+ 270 (atof deg)) 2 0))
+      
+      )
+    );WN
+		    (if (and (or (= card1 "e")(= card1 "E"))(or (= card2 "s")(= card2 "S")))
+    (progn
+      (setq deg (rtos (+ 90 (atof deg)) 2 0))
+      
+      )
+    );ES
+  
+		   
+
+  (setq lbearing (strcat deg "." (substr mins 1 2) (substr sec 1 2)))
+  (if (= rswitch "T")(setq lbearing (strcat "R" lbearing)))
+  
+
+
+  (setq bearing (strcat  deg "d" mins sec))
+    (setq linetext (strcat "@" "10" "<" bearing))
+    (command "line" p1 linetext "")
+  
+  (SETQ BENT (entget (entlast)))
+		      (setq p1 (cdr(assoc 10 bent)))
+		      (setq p2 (cdr(assoc 11 bent)))
+		       (SETQ ANG (ANGLE  P1  P2 ))
+  (command "erase" (entlast) "")
+  
+);p else no bearing entered
+		      );if no bearing entered
+
+  
+
+
+   (SETQ SENTLIST (ENTGET SENT))
+
+  (SETQ PTLIST (LIST))
+				
+;CREATE LIST OF POLYLINE POINTS
+    (SETQ PTLIST (LIST))
+	    (foreach a SENTLIST
+	      (if (= 10 (car a))
+
+		(setq PTLIST (append PTLIST (list (cdr a))))
+	      )				;IF
+	     
+	    )				;FOREACH 			)
+
+  
+
+
+   (setq sp (nth 0 ptlist))
+
+  (setq ptlist2 (list sp))
+
+  ;go through list and get chainages on bearing
+  (setq count 1)
+  (repeat (- (length ptlist) 1)
+    (setq p2 (nth count ptlist))
+    (setq intpt (inters sp (polar sp ang 100) p2 (polar p2 (+ ang (* pi 0.5)) 100) nil))
+    (setq ptlist2 (append ptlist2 (LIST intpt)))
+
+;LABEL OFFSET
+    (SETQ OFF (DISTANCE P2 INTPT))
+     (IF (= QROUND "YES")
+    (progn
+   
+(SETQ LLEN OFF)
+      (IF (< LLEN DISTMAX1) (SETQ DROUND DRND1))
+    (IF (AND (> LLEN DISTMAX1)(< LLEN DISTMAX2)) (SETQ DROUND DRND2))
+    (IF (> LLEN DISTMAX2)(SETQ DROUND DRND3))
+			
+    (SETQ LIP (FIX (/ LLEN DROUND)))
+    (SETQ LFP (- (/ LLEN DROUND) LIP))
+    (IF (>= LFP 0.5 ) (SETQ LIP (+ LIP 1)))
+    (SETQ LLEN (* LIP DROUND))
+
+    (SETQ OFF  LLEN)
+    
+    ))
+
+  
+
+      (setvar "clayer" "Occupations")
+
+    
+
+  (setq p2 (trans p2 0 1))
+  (setq intpt (trans intpt 0 1))
+    
+    (setq mp (list (/ (+ (car p2)(car intpt)) 2)(/ (+ (cadr p2)(cadr intpt)) 2)))
+    
+
+      (setq ang1 (angle  p2  intpt))
+  (if (and (> ang1  (* 0.5 pi))(< ang1 (* 1.5 pi)))(setq ang1 (- ang1 pi)))
+  (if (< ang1 0)(setq ang1 (+ ang1 (* 2 pi))))
+
+  
+      ;line based kerb occ
+      
+	(command "line" p2 intpt "")
+	(SETQ BDINFO (STRCAT "desc=\"(" (rtos off 2 3)")\">"))
+ (SETQ SENT (ENTLAST))
+  (SETQ SENTLIST (ENTGET SENT))
+  (SETQ XDATA (LIST (LIST -3 (LIST "LANDXML" (CONS 1000 BDINFO)))))
+   (setq NEWSENTLIST (APPEND SENTLIST XDATA))
+  (ENTMOD NEWSENTLIST)
+
+  (if (> off (* th 5))(setq tpos mp
+			    just "BC"))
+
+    (setvar "clayer" "Drafting AFR")
+
+					  (if (and (< off (* th 7))(>= (angle p2 intpt) (* 0.5 pi))(<= (angle p2 intpt)(* 1.5 pi)))(progn
+																     (setq tpos (polar p2 (+ ang1 (* 0.5 pi)) (* 0.6 th)))
+																     (setq ap1 (polar p2 (+ ang1 (* 0.5 pi)) (* 1.1 th)))
+																     (setq ap2 (polar mp (+ ang1 (* 0.5 pi)) (* 0.6 th)))
+																	 (setq just "BL")
+																     (command "spline" ap1 ap2 mp "" "" "")
+																     ));p&if
+					    
+					  (if (and (< off (* th 7))(or(<= (angle p2 intpt) (* 0.5 pi))(>= (angle p2 intpt)(* 1.5 pi))))(progn
+																	 (setq tpos (polar p2 (+ ang1 (* 0.5 pi)) (* 0.6 th)))
+																	 (setq ap1 (polar p2 (+ ang1 (* 0.5 pi)) (* 1.1 th)))
+																	 (setq ap2 (polar mp (+ ang1 (* 0.5 pi)) (* 0.6 th)))
+																	 (setq just "BR")
+																	 (command "spline" ap1 ap2 mp "" "" "")
+																		));p&if
+	
+	(COMMAND "TEXT" "J" JUST TPOS TH (ANGTOS  ANG1 1 4) (strcat "(" (rtos off 2 3)   ")"))
+    
+
+
+
+
+
+    
+    (setq count (+ count 1))
+    )
+	(setq ptlist ptlist2)
+(setvar "clayer" "Occupations")
+
+
+  
+
+  
+
+  (SETQ COUNT 0)
+  (setq optlist2 nil)
+  (REPEAT (LENGTH PTLIST2)
+    (SETQ optlist2 (append optlist2 (list (trans (nth count ptlist2) 0 1))))
+    (setq count (+ count 1))
+    )
+    
+  (command "_PLINE")
+     (mapcar 'command oPTLIST2)
+      (command NIL)
+  (setq sentlist (entget (entlast)))
+
+  ;get first segment
+   (setq sp (nth 0 ptlist))
+  (setq p1 (nth 1 ptlist))
+(setq LLEN (distance sp p1))
+  
+;ROUND DISTANCES
+
+  (if (= qround "YES")
+    (progn
+    (IF (< LLEN DISTMAX1) (SETQ DROUND DRND1))
+    (IF (AND (> LLEN DISTMAX1)(< LLEN DISTMAX2)) (SETQ DROUND DRND2))
+    (IF (> LLEN DISTMAX2)(SETQ DROUND DRND3))
+			
+    (SETQ LIP (FIX (/ LLEN DROUND)))
+    (SETQ LFP (- (/ LLEN DROUND) LIP))
+    (IF (>= LFP 0.5 ) (SETQ LIP (+ LIP 1)))
+    (SETQ LLEN (* LIP DROUND))
+    ))
 
     (SETQ LDIST (RTOS LLEN 2 3))
     
@@ -7071,6 +8594,7 @@
   (setvar "clayer" prevlayer)
 
   )
+
 
 
 
@@ -10577,7 +12101,7 @@
   
    
 
-  (setq dcl_id (load_dialog "Landxml.dcl"))
+  (setq dcl_id (f-lxml-dcl))
   (if (not (new_dialog "landxml" dcl_id))
     (exit)
   )
@@ -10641,7 +12165,7 @@
 
     
 
-  (setq dcl_id (load_dialog "Landxml.dcl"))
+  (setq dcl_id (f-lxml-dcl))
   (if (not (new_dialog "XDE" dcl_id))
     (exit)
   )
@@ -10705,6 +12229,14 @@
 					   
   
    ))
+  ;check for random linefeeds with no >
+      (while (and (vl-string-search "<" linetext)(= (vl-string-search ">" linetext) nil))
+	(progn
+      (setq prevlt linetext)
+      (setq linetext (strcat prevlt (read-line xmlfile)))
+      ));p&if no >
+
+  
   )
 
 
@@ -10854,7 +12386,7 @@
   ));if ff not nil
     
 
-  (if (> (length afrlist) 0)
+  (if (and (/= ff nil)(> (length afrlist) 0))
         (progn
       (setq afralert "")
       (setq count 0)
@@ -10874,6 +12406,42 @@
 
 
   )
+
+
+
+
+
+;--------------------------------------------------------------BULK IMPORT XMLS FILE FOR SD ASSIGMENT AND EXPORTING TO DYNANET--------------------------
+
+
+
+(DEFUN C:XBLIN (/)
+
+  (setq txtfilen (getfiled "Select txt of file and locations" "" "txt" 2))
+  (setq txtfile (open txtfilen "r"))
+  (SETQ planCOUNT 1)
+
+  (while (/=(setq ff (read-line txtfile)) nil)
+    (progn
+      
+
+      (COMMAND "XINOB" )
+
+      (setvar "clayer" "0")
+      (command "TEXT" tbinsertpoint "2.5" "90" (strcat "Largest misclose on imported data - " (rtos largemiss 2 3)))
+      (setq dfile (strcat (substr ff 1 (- (strlen ff) 3)) "DWG"))
+      (vla-saveas (vla-get-activedocument (vlax-get-acad-object)) dfile)
+      
+      
+      (COMMAND "ERASE" "ALL" "")
+      (PRINC (STRCAT "\n Plans processed " (rtos plancount 2 0)))
+      (setq plancount (+ plancount 1))
+
+
+
+      ));while not EOF
+
+);DEFUN
 
   
 
@@ -10897,6 +12465,19 @@
   (setq filescript "0")
   (xmlimporter)
   )
+
+(vlax-remove-cmd "XINOB")
+(vlax-add-cmd "XINOB" "XINOB" "XINOB")
+
+(DEFUN XINOB (/)
+(setq importcgpoint "fromobs")
+  (setq startpointreq "N")
+  (SETQ startpoint (LIST 1000 5000))
+  (SETQ afrstartpoint (LIST 1000 5000))
+  (setq simplestop "0")
+  (setq filescript "2")
+  (xmlimporter)
+    )
 
 (defun C:XINOA (/)
   (princ (strcat "\n Looking for xmls in folder   " autoloadff))
@@ -11292,10 +12873,14 @@
     
 (close xmlfile)
    (setq xmlfile (open xmlfilen "r"))
-    
- (while (= (vl-string-search "<Parcels>" linetext ) nil) ( progn
-  (linereader)
+    (setq eof "N")
+ (while (and (= eof "N")(= (vl-string-search "<Parcels>" linetext ) nil)) ( progn
+	(if (vl-string-search "</LandXML>" linetext)(setq eof "Y")(linereader))
+	(princ linetext)
 ))
+
+      (if (= (vl-string-search "</LandXML>" linetext) nil);xml without parcels
+	(progn
 
 
   ;do until end of parcels
@@ -11437,6 +13022,7 @@
   );if road parcel
  
 ));while not parcels
+       ));p&if parcels exist in xml
  
 
  ;----------------------------------------------------------------
@@ -11465,9 +13051,15 @@
 
   
     ;linefeed to parcels
- (while (= (vl-string-search "<Parcels>" linetext ) nil) ( progn
-  (linereader)
+   (setq eof "N")
+ (while (and (= eof "N")(= (vl-string-search "<Parcels>" linetext ) nil)) ( progn
+	(if (vl-string-search "</LandXML>" linetext)(setq eof "Y")(linereader))
+	;(princ linetext)
 ))
+
+      (if (= (vl-string-search "</LandXML>" linetext) nil);xml without parcels
+	
+	(progn
 
 
   ;do until end of parcels
@@ -12334,9 +13926,9 @@
 	    (setq digchaz (angle p1 p2))
 
 ;calc arc internal angle
-		(SETQ UNSQRMAST (- (*  RADIUS  RADIUS) (* (/ (distance p1 p2) 2)(/ (distance p1 p2) 2 ))))
-		(IF (< UNSQRMAST 0) (PROGN ;if chord is longer than diameter fit a semi circle
-				      (PRINC (strcat "\Error - Chord length longer than arc diameter from " cp1 " to "cp2 "using semi circle"))
+		(SETQ UNSQRMAST (- (*   RADIUS  RADIUS) (* (/ (distance p1 p2) 2)(/ (distance p1 p2) 2 ))))
+		(IF (<= UNSQRMAST 0) (PROGN ;if chord is longer than diameter fit a semi circle
+				      (PRINC (strcat "\Error - Chord length longer than or equal to arc diameter from " cp1 " to "cp2 "using semi circle"))
 				      (setq curvecen (polar p1 (angle p1 p2) (/ (distance p1 p2) 2)))
 				      )
 		  (progn;else
@@ -12868,6 +14460,7 @@
       (setq rcount (+ rcount 2))
       ))));rppif resnamelist exists
 
+       ));if parcels exist in xml
 
   
 
@@ -14206,8 +15799,8 @@
 
 ;calc arc internal angle
 	     	(SETQ UNSQRMAST (- (*  (atof RADIUS)  (atof RADIUS)) (* (/ (distance p1 p2) 2)(/ (distance p1 p2) 2 ))))
-		(IF (< UNSQRMAST 0) (PROGN ;if chord is longer than diameter fit a semi circle
-				      (PRINC (strcat "\nError - Chord length longer than arc diameter from " setupid " to " targetid "using semi circle"))
+		(IF (<= UNSQRMAST 0) (PROGN ;if chord is longer than diameter fit a semi circle
+				      (PRINC (strcat "\nError - Chord length longer than or equal to arc diameter from " setupid " to " targetid "using semi circle"))
 				      (setq curvecen (polar p1 (angle p1 p2) (/ (distance p1 p2) 2)))
 				      )
 		  (progn;else
@@ -15059,7 +16652,7 @@
   (setvar "clayer" prevlayer )
   (command "zoom" "extents")
 (close xmlfile)
-
+(princ "\nImport complete")
 
   
   )
@@ -16319,7 +17912,7 @@
 
      
 
-   (if (/= (setq stringpos (vl-string-search "oid" xdatai )) nil)(progn
+   (if (/= (setq stringpos (vl-string-search "oID" xdatai )) nil)(progn
 (setq wwpos (vl-string-position 34 xdatai (+ stringpos 5)))(setq pmnum (substr xdatai (+ stringpos 6) (-(- wwpos 1)(+ stringpos 4))))))
  
     (setq p1s (strcat (rtos (cadr p1) 2 4) " " (rtos (car p1) 2 4)))
@@ -20295,6 +21888,7 @@
 
       
 	 (SETVAR "CLAYER"  "Drafting AFR" )
+      (SETVAR "CELWEIGHT" 50)
       (if (/= height 0)
   		 (progn;stratum datum point
 			 (COMMAND "TEXT" "J" "BR"  TEXTPOS (* TH 1.4) "90"  ab )
@@ -20302,6 +21896,7 @@
 			 );P
 	       (COMMAND "TEXT" "J" "BR"  TEXTPOS (* TH 2) "90"  (STRCAT "'" ab "'") );normal datum point
 		       );IF SPCPOS2 NIL
+      (SETVAR "CELWEIGHT" -1)
   
   (setvar "clayer" prevlayer)
   
@@ -20342,6 +21937,7 @@
   (SETQ ENTSS (SSADD))
   (SSADD RMB ENTSS)
 (COMMAND "DRAWORDER" ENTSS "" "FRONT")
+      
 
   (IF (= (SUBSTR PMNUM 1 3) "PCM")
     (PROGN ;IF PCM
@@ -20351,13 +21947,14 @@
       )
     (PROGN ;ELSE PM
       
-
+(SETVAR "CELWEIGHT" 35)
 (SETQ TEXTPOS (LIST (+ (CAR PMPOS) TH) (+ (CADR PMPOS) (* 0.5 TH))))
  
   ;(IF (= rmstate "Placed")  (SETQ PMNUMS (STRCAT PMNUM " PL"))(SETQ PMNUMS PMNUM))
 		 (COMMAND "TEXT" "J" "BL"  TEXTPOS (* TH 1.4) "90" PMNUM)
   (SETQ TEXTPOS (LIST (+ (CAR PMPOS) TH) (+ (CADR PMPOS) (* -1.25 TH))))
   ;NSW(IF (and (/= pmclass "U") (= pmsource "SCIMS" ))(COMMAND "TEXT" "J" "BL"  TEXTPOS (* TH 1.4) "90" "(EST)"))
+(SETVAR "CELWEIGHT" -1)
   ))
 
       
@@ -20465,9 +22062,9 @@
 	    (setq digchaz (angle p1 p2))
 
 ;calc arc internal angle
-	      	(SETQ UNSQRMAST (- (*  RADIUS  RADIUS) (* (/ (distance p1 p2) 2)(/ (distance p1 p2) 2 ))))
+	      	(SETQ UNSQRMAST (- (*  (ATOF RADIUS)  (ATOF RADIUS)) (* (/ (distance p1 p2) 2)(/ (distance p1 p2) 2 ))))
 		(IF (< UNSQRMAST 0) (PROGN ;if chord is longer than diameter fit a semi circle
-				      (PRINC (strcat "Error - Chord length longer than arc diameter from " cp1 " to "cp2 "using semi circle"))
+				      (PRINC (strcat "Error - Chord length longer than arc diameter using semi circle"))
 				      (setq curvecen (polar p1 (angle p1 p2) (/ (distance p1 p2) 2)))
 				      )
 		  (progn;else
@@ -20701,9 +22298,81 @@
 
 	  )
 
+	  	  (progn;anything but an occ line
 
-	  (progn;anything but an occ line
-  
+		     (if (and (or (= objtype "POLYLINE")(= objtype "LWPOLYLINE"))(= layer "Occupations"));is a chainage polyline
+		       (progn
+
+			 
+			 (setq sp (nth 0 ptlist))
+			 (setq p1 (nth 1 ptlist))
+
+			  (SETQ CP1 (TRANS  sp 0 1))
+    (SETQ CP2 (TRANS  p1 0 1))
+    (SETQ ANG (- (ANGLE CP1 CP2) (* 0.5 pi)))
+    (SETQ DANG (* ANG (/ 180 PI)))
+
+    (IF (AND (> DANG 90) (<= DANG 270)) (PROGN
+					 (SETQ CP1 (TRANS P1 0 1))
+					 (SETQ CP2 (TRANS SP 0 1))
+					 (SETQ ANG (- (ANGLE CP1 CP2) (* 0.5 PI)))
+                                         (SETQ DANG (* ANG (/ 180 PI)))
+					 )
+      )
+
+
+			    (SETVAR "CLAYER"  "Drafting AFR" )
+  (setq 00pos (polar sp (- (angle cp1 cp2) (* 0.5 pi)) (* 0.7 TH)))
+    (command "insert" "VCH0" "_S" TH (trans 00pos 0 1) (angtos (ANGLE (trans sp 0 1)(trans p1 0 1)) 1 4))
+    (setq ,pos1 (vl-string-position 44 xdatai 0));remove chainage zero from xdata
+    (setq xdatai (substr xdatai (+ ,pos1 2)))
+			 (setq LLEN 0)
+			 
+		(SETQ COUNT 0)	 
+  (REPEAT  (- (LENGTH PTLIST) 1) 
+    (setq p1 (nth count ptlist))
+    (setq p2 (nth (+ count 1) ptlist))
+
+    (setq ,pos1 (vl-string-position 44 xdatai 0))
+    (IF (/= ,pos1 nil) (setq segdist (substr xdatai 1 ,pos1)
+			     xdatai (substr xdatai (+ ,pos1 2)))
+			     (setq segdist xdatai))
+         (setq LLEN   ( + LLEN (atof segdist )))
+    
+    
+
+    ;ROUND DISTANCES
+
+    (if (= qround "YES")
+      (progn
+    (IF (< LLEN DISTMAX1) (SETQ DROUND DRND1))
+    (IF (AND (> LLEN DISTMAX1)(< LLEN DISTMAX2)) (SETQ DROUND DRND2))
+    (IF (> LLEN DISTMAX2)(SETQ DROUND DRND3))
+			
+    (SETQ LIP (FIX (/ LLEN DROUND)))
+    (SETQ LFP (- (/ LLEN DROUND) LIP))
+    (IF (>= LFP 0.5 ) (SETQ LIP (+ LIP 1)))
+    (SETQ LLEN (* LIP DROUND))
+    ))
+
+    (SETQ LDIST (RTOS LLEN 2 3))
+    
+    
+    (COMMAND "TEXT" "J" "ML" (trans P2 0 1) TH (ANGTOS ANG 1 4) ldist )
+    (SETQ COUNT (+ COUNT 1))
+
+        
+    );R
+			 
+
+
+
+			 );p if chainage polyline
+
+		       
+
+		       (progn;is any other type of occupation
+		    ;normal occupations
 		 (setq mp1 (TRANS (nth (- (/ (length ptlist) 2)1) ptlist) 0 1))
 		 (setq mp2 (TRANS (nth  (/ (length ptlist) 2) ptlist) 0 1))
 		 (setq mp (list (/ (+ (car mp1)(car mP2)) 2) (/ (+ (cadr mp1)(cadr mp2)) 2)))
@@ -20714,6 +22383,9 @@
                  (setvar "clayer" "Drafting AFR")
   		 (COMMAND "TEXT" "J" "MC" 1pos TH (ANGTOS mprot 1 4) irbd)
 		 (setvar "clayer" prevlayer)
+
+	));p and if not chainage polyline
+		    
 	    );if not in occupations layer
 
 	  )
