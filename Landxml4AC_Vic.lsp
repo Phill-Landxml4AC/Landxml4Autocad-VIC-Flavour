@@ -66,7 +66,7 @@
 ;Revisons 1.4.6-Fixed bug in xino roadline reader
 ;Revision 1.5  -Xbin added for bulk xml to dwg conversion
 ;              -Changes to linereader function to deal with linefed lines in xml
-;              -Changes t0 arc reader in xin to include when chord distance is exactly equal to 2 x radius
+;              -Changes to arc reader in xin to include when chord distance is exactly equal to 2 x radius
 ;              -Change iod to oID on control point xout
 ;              -Made XDP text 0.5mm
 ;              -Made XPM text 0.35mm
@@ -74,8 +74,9 @@
 ;              -Fixed problem with Dialog box when no support file search path - still need path for blocks
 ;              -Change XRT to deal with chainage lines
 ;              -Fixed problem with Supp AFR comming up when no file is found
+;Revision 1.5.1-xin and xino now remember folder location
 
-(setq version "1.5")
+(setq version "1.5.1")
 
 
 (REGAPP "LANDXML")
@@ -493,6 +494,7 @@
 (if ( = ped nil)(setq ped ""))
 (if (= ATHR nil)(setq ATHR "Y"))
 (setq prevowner "")
+(setq folderloc "")
 
 
 
@@ -12535,7 +12537,12 @@
  
 
   (if (= filescript "1") (setq xmlfilen (getstring "File:" t)))
-  (if (= filescript "0") (setq xmlfilen (getfiled "Select XML file" "" "xml" 2)))
+  (if (= filescript "0") (progn
+			   (setq xmlfilen (getfiled "Select XML file" folderloc "xml" 2))
+			   (setq folderloc (substr xmlfilen 1 (+ (vl-string-position 92 xmlfilen 1 T) 1)))
+			   ))
+
+    
   (if (= filescript "2") (setq xmlfilen ff))
   (if (= startpointreq "Y")(progn
 			     (setq startpoint (getpoint "Select a starting point:"))
