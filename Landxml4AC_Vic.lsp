@@ -18,7 +18,7 @@
 ;If we meet some day, and you think this stuff is worth it, you can buy me a beer in return.
 
 ;Edited from version 1.8.11 of NSW version
-;Revision 1.0 – Beta
+;Revision 1.0   Beta
 ;Revision 1.1    Reserves added to road creators
 ;               Fixed XAM not assigning text to Admin Sheet layer
 ;               Checked for EAS while adding link parcels to easement
@@ -73,14 +73,45 @@
 ;              -Added XCHO
 ;              -Fixed problem with Dialog box when no support file search path - still need path for blocks
 ;              -Change XRT to deal with chainage lines
-;              -Fixed problem with Supp AFR comming up when no file is found
+;              -Fixed problem with Supp AFR coming up when no file is found
 ;Revision 1.5.1-xin and xino now remember folder location
 ;Revision 1.6  -xina added
 ;              -fixed problem with xin and afrstartpoint problem
 ;              -changed the min LP check digit number
 ;              -fixed problem with default scale
+;Revision 1.6.1-fixed problem with xin labelling PM&PCM's twice
+;Revision 1.7  -added xut
+;              -fixed problem with wall and fence linestyles
+;              -added xmi
+;Revision 1.7.1-drafting styles edited to made traverse and AFR bdys 3.5mm
+;              -added XBLIN
+;              -modified XIN to deal with new xmls coming from eplan portal with lats and longs thats are mga
+;Revision 1.7.2-fixed problem with rounding of first chainage in XCC and XCHO
+;              -XOC will note denonte ON BDY when offset is zero
+;              -XCHO offsets and chainages now spaced a little away from line
+;Revision 1.7.3-XOBSI added to add observation number above bearing if required (for Jira QA)
+;              -Fixed rounding problem when using XTA in arc distance mode
+;              -Added XRX to rotate xdata bearings by set amount
+;Revision 1.8  -Added XOV and XOVA for victorian style chainage offsets
+;              -Changed chainges to record absolute and not differneces as in handbook (no one is doing xml chainages anyway and the handbook example was stupid)
+;              -Added XCHON, XCHOV and XCHOVN
+;              -Added XAH
+;              -Minor changes to metadata case importing and exporting
+;              -XOUT was looking at wrong attribute for zone number checking
+;Revision 1.9  -Building boundary and building return observations added to allow for backcaptured plans with those features
+;              -Additional monument types added to list
+;              -Added checks to feet inputs to reduce errors when mixing decimal and fractional feet.
+;Revision 1.91 -Fixed easement exporter
+;              -Added trailing zeros on export (even though it is in contradiction with survey directions)
+;              -Added measured type on export (even though these are optional)
+;              -Added annotation centre of lot to admin sheet and import export
+;              -= added to xml parsing when gathering attributes
+;              -Author added
+;Revision 1.92 -Fixed problem with 2 point XCHOV bearing
+;Revision 1.93 -Fixed problem with topo arcs not setting purpose to lower case
 
-(setq version "1.6")
+
+(setq version "1.93")
 
 
 (REGAPP "LANDXML")
@@ -202,16 +233,22 @@
  (princ " ||  LMXL Linetypes Load || ")
  (setq ls1 (list ;;LTYPESHP AutoCAD Linetype file  revision 1
 		 ;;Edited by Phillip Nixon 2015 from Landinfo.lin by Tony Monforte 20.05.1997
-		 (list "*FENCE,-- / --------" "A,1,-.25,[\" / \",STANDARD,S=.35,R=0,X=-.15,Y=-.15],-.25,1")
-		 (list "*FENCE_ON_BDRY,__/_____" "A,1.25,[\" / \",STANDARD,S=0.35,R=0,X=0,Y=0],1.25")
-		 (list "*WALL,___\\_____" "A,.75,[\" \\\\ \",STANDARD,s=.35,R=180],.25")
-		 (list "*BUILDING,__\__\__" "A,.3,[\" \\ \",STANDARD,s=.35,R=180],.3")
+		 (list "*FENCE,-- / --------" "A,1,-.25,[\"/\",STANDARD,S=.35,R=0,X=-.15,Y=-.15],-.25,1")
+		 (list "*FENCE_ON_BDRY,__/_____" "A,1.25,[\"/\",STANDARD,S=0.35,R=0,X=0,Y=0],1.25")
+		 (list "*WALL,___\\_____" "A,.75,[\"\\\\\",STANDARD,s=.35,R=180],.25")
+		 (list "*WALL_OTHERSIDE,___\\_____" "A,.75,[\"\\\\\",STANDARD,s=.35,R=0],.25")
+		 (list "*BUILDING,__\__\__" "A,.3,[\"\\\",STANDARD,s=.35,R=180],.3")
 		 (list "*EASEMENT,__ __ __ __ __ __ __ __ __ __ __ __ __ _" "A,1,-.5")
 		 (list "*TRAVERSE,__ __ _____ __ __ __ __ __ __ __ __ __ _" "A,2,-.5,1,-.5,1,-0.5,2")
 		 (list "*PM_CONNECTION,__ __ __ __ __ __ __ __ __ __ __ __ __ _" "A,1,-.5")
 		 (list "*KERB,____  ____  ____  ____  ____  ___" "A,3.0,-.5")
-		 (list "*PARISH BOUNDARY,-- . --------" "A,1,-.25,[\".\",STANDARD,S=.35,R=0,X=-.0,Y=-.0],-.25,1")
-		 (list "*COUNTY BOUNDARY,-- X --------" "A,1,-.25,[\"X\",STANDARD,S=.35,R=0,X=-.15,Y=-.15],-.25,1")
+		 (list "*PARISH BOUNDARY,___  __  ____" "A,1,-.4,.4,-.4")
+		 (list "*COUNTY BOUNDARY,_____  __ __ _____" "A,1,-.4,.4,-.4,.4,-.4")
+		 (list "*STATE BOUNDARY,_____ ___ _ _____" "A,1.2,-.4,.6,-.4,.2,-.4")
+		 (list "*TOWNSHIP BOUNDARY,_____    _____" "A,1,-.8")
+		 (list "*MUNICIPAL BOUNDARY,_____ ___ _ _____" "A,1,-.4,1,-0.4,0.4,-0.4")
+		 (list "*RESERVED FOREST,  - + -" "A,0.4,-0.4,0.6,[\"|\",STANDARD,S=0.275,R=0,X=-0.35,Y=-0.15],-0.4")
+		 (list "*NATIONAL PARK, - ++ -" "A,0.4,-0.4,0.6,[\"|\",STANDARD,S=0.275,R=0,X=-0.025,Y=-0.15],0.6,[\"|\",STANDARD,S=0.275,R=0,X=-0.025,Y=-0.15],0.6,-0.4")
 		 (list "*STRUCTURE_INTERIOR,-- / --------" "A,0.3,[\"/\",STANDARD,S=0.35,R=0,X=0,Y=0],0.3")
 		 (list "*STRUCTURE_EXTERIOR,-- / --------" "A,0.3,[\"/\",STANDARD,S=0.35,R=180,X=0,Y=0],0.3")
 		 (list "*STRUCTURE_MEDIAN,-- / --------" "A,0.3,[\"\\\",STANDARD,S=0.35,R=0,X=0,Y=0],0,[\"/\",STANDARD,S=0.35,R=180,X=0.22,Y=0],0.3")
@@ -327,14 +364,16 @@
  (setq ls1 (list '("XTR" "Traverse")		 '("XTA" "Arc Traverse")		 '("XTC" "Chainage Traverse") '("XTCO" "Chainage Traverse & offset")
 		 '("XCL" "Create Lot")			 '("XCE" "Create Easement Lot")		 '("XLE" "Link Easemnt Geometry")
 		 '("XCR" "Create Road/Reserve Lot")		 '("XCM" "Create mark")		 '("XPM" "Create PM mark")
-		 '("XDP" "Create Datum Point")		 '("XOC" "Create occupation offset")		 '("XOQ" "Create Queensland style point occupation")
+		 '("XDP" "Create Datum Point")		 '("XOC" "Create occupation offset") '("XOV" "Create Victorian style chainage offset") '("XOVA" "Create Vic style chainage offset with AD") '("XOQ" "Create Queensland style point occupation")
 		 '("XAS" "Create Admin Sheet")			 '("XLA" "Add Layout Sheet")		 '("XOC" "Add owners corporation schedule")
 		
 		)
        ls2 (list '("XAL" "Assign line to XML")		 '("XALN" "Assign line to XML with note")		 '("XAA" "Assign arc to XML")
 		 '("XAAN" "Assign arc to XML with note")		 '("XAN" "Add note to line or arc")		 '("XAP" "Assign Polyline (Lot) to XML")
 		 '("XAR" "Assign Polyline (New Road/Reserve) to XML")		 '("XJL" "Assign Polyline (Adjoining) to XML")		 '("XJR" "Assign Polyline (Existing Road) to XML")
-		 '("XAC" "Assign Polyline (Chainage) to XML")		 '("XCC" "Create chainage from polyline") '("XCHO" "Create chainage and offsets from polyline")		 '("XTI" "Assign Title to polyline")
+		 '("XAC" "Assign Polyline (Chainage) to XML")		 '("XCC" "Create chainage from polyline") '("XCHO" "Create chainage and offsets from polyline")
+		 '("XCHOV" "Create CH and Off from poly Vic Style") '("XCHOVN" "Create CH and OFF from poly Vic Style with notes")
+		 '("XTI" "Assign Title to polyline")
 		 '("XAD" "Assign Address to polyline")		 '("XAM" "Assign Multitext Plan Notes")		 '("XAO" "Assign Occupation to XML")
 		 '("XOS" "Offset Line")		 '("XAI" "Assign Polyline as Irregular Boundary")
 		)
@@ -342,8 +381,9 @@
 		 '("XLCD" "Check loops on drawn geomtry")	'("XAUD" "Audit geometry against Xdata") '("XARP" "Add reference plan to data")
 	   )
        ls4 (list '("XCS" "Create station labels")	         '("XSL" "Create Short line Table (XSL)")		 '("XSC" "Create Short Arc Table (XSC)")
-		 '("XSW" "Swap text positions (XSW)")		 '("XSB" "Spread Bearings")		 '("XSP" "Spin text 180° (XSP)")
-		 '("XCB" "Create Brackets around text (XCB)")		 '("XRT" "Recreate Text from Xdata")		 '("XMT" "Make tick marks")
+		 '("XSW" "Swap text positions (XSW)")		 '("XSB" "Spread Bearings")		 '("XSP" "Spin text 180  (XSP)")
+		 '("XCB" "Create Brackets around text (XCB)")	'("XUT" "Underline Text") '("XMI" "Make things invisible")
+		 '("XRT" "Recreate Text from Xdata")		 '("XMT" "Make tick marks")
 		 '("XPU" "Push text past line with extension")
 			 )
        
@@ -429,6 +469,7 @@
 (command "layer" "m" "Drafting AFR" "c" "cyan" "" "lw" "0.25" "" "")
 (command "layer" "m" "CG Points" "c" "white" "" "lw" "0.25" "" "p" "n" "" "")
 (command "layer" "m" "Admin Sheet" "c" "white" "" "lw" "0.25" "" "")
+(command "layer" "m" "Miscloses" "c" "Red" "Miscloses" "" )
 (command "layer" "m" "Occupation Building Return" "c" "white" "" "lw" "0.25" "" "L" "BUILDING" "" "")
 (command "layer" "m" "Occupation Walls" "c" "white" "" "lw" "0.25" "" "L" "WALL" "" "")
 (command "layer" "m" "Occupation Timber Walls" "c" "white" "" "lw" "0.25" "" "L" "WALL" "" "")
@@ -456,6 +497,8 @@
 (command "layer" "m" "Traverse" "c" "cyan" "" "lw" "0.25" "" "l" "TRAVERSE" "" "")
 (command "layer" "m" "Sideshot" "c" "yellow" ""  "lw" "0.25" "" "l" "EASEMENT" "" "")
 (command "layer" "m" "Topo" "c" "123" ""  "lw" "0.25" "" "l" "EASEMENT" "" "")
+(command "layer" "m" "BuildingBoundary" "c" "yellow" "" "lw" "0.5" "" "")
+(command "layer" "m" "BuildingReturn" "c" "yellow" "" "lw" "0.5" "" "")
 
 
 ;rounding defaults
@@ -505,18 +548,20 @@
 
 
 ;checking lists
-(setq rmtypelist (list "Bolt" "Chisel Cut" "Cross Head Nail" "Deep Driven Rod" "Drill Hole" "Drill Hole with Wings"
-		       "Dumpy" "G.I. Nail" "Nail in Peg" "Nail in Rail" "Not Marked" "Peg" "Peg and Trench" "Pin"
-		       "G.I. Pipe" "Plaque" "Rivet" "Rod" "Reference Tree" "Screw" "Spike" "Star Picket" "Survey Nail"
-		       "Other" "SSM (Standard Survey Mark)" "Square Post" "Round Post" "Split Post" "Nail in Join" "Tree"
-
+(setq rmtypelist (list "Bolt" "Chisel Cut" "Cross Head Nail" "Deep Driven Rod" "Drill Hole" "Drill Hole with Wings" "Dumpy" "G.I. Nail" 
+"G.I. Pipe" "Nail in Join" "Nail in Peg" "Nail in Post" "Nail in Rail" "Not Marked" "Other" "Peg" "Peg and Trench"
+ "Pin" "Pipe" "Plaque" "Reference Tree" "Rivet" "Rod" "Round Post" "SSM (Standard Survey Mark)" "Screw" "Spike" 
+"Split Post" "Square Post" "Star Picket" "Survey Nail" "Tree" "Fence" "Fence (Intersection)" "Post (Round Timber)"
+ "Post (Square Timber)" "Post (Split)" "Post (Square Steel)" "Post (Gate)" "Post (Other)" "Steel Dropper" "Brick"
+ "Render" "Cladding" "Other Hard Surface" "Natural Feature"
 ))
 
 (setq rmconditionlist (list "Abandoned" "Damaged" "Destroyed" "Disturbed" "Found" "Leaning" "Loose" "Nipple Damaged" "Not Found"
 "Not Used" "OK" "Origin" "Placed" "Plaque Missing" "Removed" "Replaced" "Suspect" "Unknown" "Unstable"))
-
-(setq autoloadff "J:\\IE\\Admin\\03_Southern\\Survey\\03_CAD Standards Survey\\vicmap_cad_supply\\XML\\")
+;(setq autoloadff "e:\\Documents\\14 Jobs\\LXML\\Test Data\\Vic Backcaptured Plans 09_2024\\")
+(setq autoloadff "J:\\IE\\Admin\\03_Southern\\Survey\\03_CAD Standards Survey\\vicmap_cad_supply\\XML_092024\\")
 (SETQ autoloadlist (list
+		     "05_2023_ONLY_FILES"
 		     "ALPINE"
 		     "ARARAT"
 		     "BALLARAT"
@@ -524,7 +569,7 @@
 		     "BASS COAST"
 		     "BAW BAW"
 		     "BAYSIDE"
-		     "BENNALA"
+		     "BENALLA"
 		     "BOROONDARA"
 		     "BRIMBANK"
 		     "BULOKE"
@@ -536,6 +581,7 @@
 		     "CORANGAMITE"
 		     "DAREBIN"
 		     "EAST GIPPSLAND"
+		     "FALLS CREEK ALPINE RESORT"
 		     "FRANKSTON"
 		     "FRENCH-ELIZABETH-SANDSTONE ISLANDS (UNINC)"
 		     "GLEN EIRA"
@@ -572,6 +618,9 @@
 		     "MORELAND"
 		     "MORNINGTON PENINSULA"
 		     "MOUNT ALEXANDER"
+		     "MOUNT BAW BAW ALPINE RESORT"
+		     "MOUNT BULLER ALPINE RESORT"
+		     "MOUNT HOTHAM ALPINE RESORT"
 		     "MOYNE"
 		     "MURRINDINDI"
 		     "NILLUMBIK"
@@ -597,8 +646,11 @@
 		     "YARRA"
 		     "YARRA RANGES"
 		     "YARRIAMBIACK"
+		     "24-25"
 			 
 ))
+
+
 
 
 ;end of page setup
@@ -621,6 +673,8 @@
 (princ "\nXPM - Create PM mark (PM or SSM)")
 (princ "\nXDP - Create Datum Point")
 (princ "\nXOC - Create occupation offset")
+(princ "\nXOV - Create Vic style chainage offset")
+(princ "\nXOVA - Create Vic style chainage offset with AD")
 (princ "\nXOQ - Create Queenland style point occupation")
 (princ "\nXCF - Create Flow arrow")
 (princ "\nXAS - Create Admin Sheet")
@@ -640,6 +694,8 @@
 (princ "\nXAC - Assign Polyline as chainage")
 (princ "\nXCC - Create chainage from polylines points")
 (princ "\nXCHO - Create chainage and offset from polyline points")
+(princ "\nXCHOV - Create chainage and offset from polyline points Vic style")
+(princ "\nXCHOVN - Create chainage and offset from polyline points Vic style with notes")
 (princ "\nXAO - Assign description to Occupation")
 (princ "\nXAM - Assign multitext")
 (princ "\nXAN - Assign note to line/arc")
@@ -649,7 +705,7 @@
 (princ "\nXSC - Assign arcs to Short Line Table")
 (princ "\nXOS - Offest line")
 (princ "\nXSW - Swap text positions")
-(princ "\nXSP - Spin text 180°")
+(princ "\nXSP - Spin text 180 ")
 (princ "\nXCB - Create brackets around text")
 (princ "\nXMT - Create tick marks")
 (princ "\nXRT - Recreate Text from Xdata")
@@ -674,6 +730,8 @@
 (setq SCALE (getreal "\nType Scale 1:"))
   (setq TH (* 2.5 (/ scale 1000 )))
   (setvar "celtscale" (/ (/ scale 100) 2))
+  (setq AFRBDY (getstring "\nAre you drafting the AFR (boundary dims will be made 3.5mm)? (Y/N):"))
+  (if (or (= AFRBDY "")(= AFRBDY "y")(= AFRBDY "YES")(= AFRBDY "Yes")(= AFRBDY "yes"))(setq AFRBDY "Y"))
   (setq ATHR (getstring "\nAutomatically Reduce Text Height? (Y/N):"))
   (if (or (= ATHR "")(= ATHR "y")(= ATHR "YES")(= ATHR "Yes")(= ATHR "yes"))(setq ATHR "Y"))
     (VLAX-LDATA-PUT "LXML4AC" "scale" scale)
@@ -727,6 +785,14 @@
  (VLAX-LDATA-PUT "LXML4AC" "drnd3" drnd3)   
    
     )
+
+
+;turn on obsimporting
+(defun C:XOBI (/)
+  (SETQ OBSI (GETSTRING "\nDo you want observaion numbers labelled?(Y/N):"))
+  (IF (OR (= OBSI "Y") (= OBSI "y")(= OBSI "yes"))(progn (SETQ OBSI "YES")))
+  )
+
 
 ;--------------------------Remove Element from List Function-----------------------------
 (defun remove_nth ( lst n / lstn)
@@ -1055,6 +1121,7 @@
 	    (setq num (substr dist ( + dotpos2 2) (- (- /pos1 dotpos2) 1)))
 	    (setq idist (/ (atof num) (atof den)))
 	    (setq inches (substr dist (+ dotpos1 2) (- (- dotpos2 dotpos1) 1)))
+	    (if (> (atof inches) 12)(alert "More that 12 inches - is that correct?"))
 	    (setq idist (+ idist (atof inches)))
 	    (setq feet (substr dist 1  dotpos1 ))
 	    (setq idist (+ idist (* (atof feet) 12)))
@@ -1064,6 +1131,7 @@
 	(if (and (/= dotpos1 nil) (= /pos1 nil))
 	  (progn
 	    (setq inches (substr dist ( + dotpos1 2) 50))
+	    (if (> (atof inches) 12)(alert "More that 12 inches - is that correct?"))
 	    (setq feet (substr dist 1  dotpos1 ))
 	    (setq idist  (atof inches))
 	    (setq idist (+ idist (* (atof feet) 12)))
@@ -1078,18 +1146,22 @@
 	    (setq dist (rtos (* idist 0.0254) 2 9))
 	    )
 	  )
+	(setq ldist (rtos (atof dist)2 3));remove trailing zeros
       )
     )
   (if (= units "L")
     (progn
       (setq dist (atof dist))
       (setq dist (rtos (* dist 0.201168)))
+      (setq ldist (rtos (atof dist)2 3));remove trailing zeros
       )
     )
   (if (= units "DF")
     (progn
+      (if (vl-string-position 47 dist 0)(alert "/ entered when using decimal feet"))
       (setq dist (atof dist))
       (setq dist (rtos (* dist 0.3048)))
+      (setq ldist (rtos (atof dist)2 3));remove trailing zeros
       )
     )
 	      
@@ -1098,13 +1170,13 @@
     ;DRAW LINE 1
      
   (IF ( = rswitch "T")(setq obearing (substr lbearing 2 200))(setq obearing lbearing))
-  (setq dist (rtos (atof dist)2 3));remove trailing zeros
+  ;(setq dist (rtos (atof dist)2 3));remove trailing zeros
   (if (= dist "0") (progn
 		     (princ "\nDistance of 0 entered")
 		     (exit))
     )
   
-  (setq ldist dist)
+  (if (= units "M")(setq ldist dist))
   (setq bearing (strcat  deg "d" mins sec))
 
   (setq linetext (strcat "@" dist "<" bearing))
@@ -1137,8 +1209,8 @@
 ;Move line if reverse activated
 (if (= rswitch "T")
   (progn
-    (setq p1 (CDR(ASSOC 10 sentlist)))
-    (setq p2 (CDR(ASSOC 11 sentlist)))
+    (setq p1 (trans (CDR(ASSOC 10 sentlist)) 0 1))
+    (setq p2 (trans (CDR(ASSOC 11 sentlist)) 0 1))
     (command "move" sent "" p2 p1)
 
 ;get last line end point
@@ -1395,6 +1467,7 @@
 	    (setq den (substr dist ( + /pos1 2) 50))
 	    (setq num (substr dist ( + dotpos2 2) (- (- /pos1 dotpos2) 1)))
 	    (setq idist (/ (atof num) (atof den)))
+	    (if (> (atof inches) 12)(alert "More that 12 inches - is that correct?"))
 	    (setq inches (substr dist (+ dotpos1 2) (- (- dotpos2 dotpos1) 1)))
 	    (setq idist (+ idist (atof inches)))
 	    (setq feet (substr dist 1  dotpos1 ))
@@ -1405,6 +1478,7 @@
 	(if (and (/= dotpos1 nil) (= /pos1 nil))
 	  (progn
 	    (setq inches (substr dist ( + dotpos1 2) 50))
+	    (if (> (atof inches) 12)(alert "More that 12 inches - is that correct?"))
 	    (setq feet (substr dist 1   dotpos1 ))
 	    (setq idist  (atof inches))
 	    (setq idist (+ idist (* (atof feet) 12)))
@@ -1419,29 +1493,33 @@
 	    (setq dist (rtos (* idist 0.0254) 2 9))
 	    );P
 	  );IF
+(setq ldist (rtos (atof dist)2 3));remove trailing zeros
       );P
     );IF
   (if (= units "L")
     (progn
       (setq dist (atof dist))
       (setq dist (rtos (* dist 0.201168)))
+      (setq ldist (rtos (atof dist)2 3));remove trailing zeros
       );P
     );IF
   (if (= units "DF")
     (progn
+      (if (vl-string-position 47 dist 0)(alert "/ entered when using decimal feet"))
       (setq dist (atof dist))
       (setq dist (rtos (* dist 0.3048)))
+      (setq ldist (rtos (atof dist)2 3));remove trailing zeros
           
       )); if & p decimal feet
 
 		;DRAW LINE 2+
 
-		    (setq dist (rtos (atof dist)2 3));remove trailing zeros
+		  ;  (setq dist (rtos (atof dist)2 3));remove trailing zeros
 		   (if (= dist "0") (progn
 		     (princ "\nDistance of 0 entered")
 		     (exit))
     )
-  (setq ldist dist)
+  (if (= units "M")(setq ldist dist))
 	(IF ( = rswitch "T")(setq obearing (substr lbearing 2 200))(setq obearing lbearing))	   
     
 
@@ -1473,8 +1551,8 @@
  ;Move line if reverse activated
 (if (= rswitch "T")
   (progn
-    (setq p1 (CDR(ASSOC 10 sentlist)))
-    (setq p2 (CDR(ASSOC 11 sentlist)))
+    (setq p1 (trans (CDR(ASSOC 10 sentlist)) 0 1))
+    (setq p2 (trans (CDR(ASSOC 11 sentlist)) 0 1))
     (command "move" sent "" p2 p1)
 
 ;get last line end point
@@ -1520,8 +1598,8 @@
   (setq startobj (car startobjs))
   (setq closept (cadr startobjs))
 
-  (setq lp1 (CDR(ASSOC 10 (entget startobj))))
-  (setq lp2 (cdr(assoc 11 (entget startobj))))
+  (setq lp1 (trans (CDR(ASSOC 10 (entget startobj))) 0 1))
+  (setq lp2 (trans (cdr(assoc 11 (entget startobj))) 0 1))
 
   (if (< (distance lp1 closept)(distance lp2 closept))
     (setq ang (angle lp1 lp2)
@@ -1815,6 +1893,7 @@
 	    (setq num (substr dist ( + dotpos2 2) (- (- /pos1 dotpos2) 1)))
 	    (setq idist (/ (atof num) (atof den)))
 	    (setq inches (substr dist (+ dotpos1 2) (- (- dotpos2 dotpos1) 1)))
+	    (if (> (atof inches) 12)(alert "More that 12 inches - is that correct?"))
 	    (setq idist (+ idist (atof inches)))
 	    (setq feet (substr dist 1  dotpos1 ))
 	    (setq idist (+ idist (* (atof feet) 12)))
@@ -1824,6 +1903,7 @@
 	(if (and (/= dotpos1 nil) (= /pos1 nil))
 	  (progn
 	    (setq inches (substr dist ( + dotpos1 2) 50))
+	    (if (> (atof inches) 12)(alert "More that 12 inches - is that correct?"))
 	    (setq feet (substr dist 1  dotpos1 ))
 	    (setq idist  (atof inches))
 	    (setq idist (+ idist (* (atof feet) 12)))
@@ -1848,6 +1928,7 @@
     )
   (if (= units "DF")
     (progn
+      (if (vl-string-position 47 dist 0)(alert "/ entered when using decimal feet"))
       (setq dist (atof dist))
       (setq dist (rtos (* dist 0.3048)))
       )
@@ -1895,7 +1976,7 @@
     ;DRAW LINE 1
      
   (IF ( = rswitch "T")(setq obearing (substr lbearing 2 200))(setq obearing lbearing))
-  (setq dist (rtos (atof dist)2 3));remove trailing zeros
+  ;(setq dist (rtos (atof dist)2 3));remove trailing zeros
   (if (= dist "0") (progn
 		     (princ "\nDistance of 0 entered")
 		     (exit))
@@ -1934,16 +2015,16 @@
 ;Move line if reverse activated
 (if (= rswitch "T")
   (progn
-    (setq p1 (CDR(ASSOC 10 sentlist)))
-    (setq p2 (CDR(ASSOC 11 sentlist)))
+    (setq p1 (trans (CDR(ASSOC 10 sentlist)) 0 1))
+    (setq p2 (trans (CDR(ASSOC 11 sentlist)) 0 1))
     (command "move" sent "" p2 p1)
 
 ;get last line end point
 (SETQ SENT (ENTLAST))
   (SETQ SENTLIST (ENTGET SENT))
 (setq p1 (CDR(ASSOC 10 sentlist)))
-    (setq lp1 (CDR(ASSOC 10 sentlist)))
-    (setq lp2 (CDR(ASSOC 11 sentlist)))
+    (setq lp1 (trans (CDR(ASSOC 10 sentlist)) 0 1 ))
+    (setq lp2 (trans (CDR(ASSOC 11 sentlist)) 0 1 ))
     
     );p
   
@@ -1952,8 +2033,8 @@
 (SETQ SENT (ENTLAST))
   (SETQ SENTLIST (ENTGET SENT))
 (setq p1 (CDR(ASSOC 11 sentlist)))
-    (setq lp1 (CDR(ASSOC 11 sentlist)))
-    (setq lp2 (CDR(ASSOC 10 sentlist)))
+    (setq lp1 (trans (CDR(ASSOC 11 sentlist)) 0 1))
+    (setq lp2 (trans (CDR(ASSOC 10 sentlist)) 0 1))
 );p else
 
 );if
@@ -2227,6 +2308,7 @@
 	    (setq num (substr dist ( + dotpos2 2) (- (- /pos1 dotpos2) 1)))
 	    (setq idist (/ (atof num) (atof den)))
 	    (setq inches (substr dist (+ dotpos1 2) (- (- dotpos2 dotpos1) 1)))
+	    (if (> (atof inches) 12)(alert "More that 12 inches - is that correct?"))
 	    (setq idist (+ idist (atof inches)))
 	    (setq feet (substr dist 1  dotpos1 ))
 	    (setq idist (+ idist (* (atof feet) 12)))
@@ -2236,6 +2318,7 @@
 	(if (and (/= dotpos1 nil) (= /pos1 nil))
 	  (progn
 	    (setq inches (substr dist ( + dotpos1 2) 50))
+	    (if (> (atof inches) 12)(alert "More that 12 inches - is that correct?"))
 	    (setq feet (substr dist 1   dotpos1 ))
 	    (setq idist  (atof inches))
 	    (setq idist (+ idist (* (atof feet) 12)))
@@ -2260,6 +2343,7 @@
     );IF
   (if (= units "DF")
     (progn
+      (if (vl-string-position 47 dist 0)(alert "/ entered when using decimal feet"))
       (setq dist (atof dist))
       (setq dist (rtos (* dist 0.3048)))
           
@@ -2311,7 +2395,7 @@
 
 		;DRAW LINE 2+
 
-		    (setq dist (rtos (atof dist)2 3));remove trailing zeros
+		;    (setq dist (rtos (atof dist)2 3));remove trailing zeros
 		   (if (= dist "0") (progn
 		     (princ "\nDistance of 0 entered")
 		     (exit))
@@ -2351,16 +2435,16 @@
 ;Move line if reverse activated
 (if (= rswitch "T")
   (progn
-    (setq p1 (CDR(ASSOC 10 sentlist)))
-    (setq p2 (CDR(ASSOC 11 sentlist)))
+    (setq p1 (trans (CDR(ASSOC 10 sentlist)) 0 1))
+    (setq p2 (trans (CDR(ASSOC 11 sentlist)) 0 1))
     (command "move" sent "" p2 p1)
 
 ;get last line end point
 (SETQ SENT (ENTLAST))
   (SETQ SENTLIST (ENTGET SENT))
-(setq p1 (CDR(ASSOC 10 sentlist)))
-    (setq lp1 (CDR(ASSOC 10 sentlist)))
-    (setq lp2 (CDR(ASSOC 11 sentlist)))
+(setq p1  (CDR(ASSOC 10 sentlist)))
+    (setq lp1 (trans (CDR(ASSOC 10 sentlist)) 0 1))
+    (setq lp2 (trans (CDR(ASSOC 11 sentlist)) 0 1))
     
     );p
   
@@ -2369,8 +2453,8 @@
 (SETQ SENT (ENTLAST))
   (SETQ SENTLIST (ENTGET SENT))
 (setq p1 (CDR(ASSOC 11 sentlist)))
-    (setq lp1 (CDR(ASSOC 11 sentlist)))
-    (setq lp2 (CDR(ASSOC 10 sentlist))) 
+    (setq lp1 (trans (CDR(ASSOC 11 sentlist)) 0 1))
+    (setq lp2 (trans (CDR(ASSOC 10 sentlist)) 0 1)) 
 );p else
 
 
@@ -2716,6 +2800,7 @@
 	    (setq num (substr dist ( + dotpos2 2) (- (- /pos1 dotpos2) 1)))
 	    (setq idist (/ (atof num) (atof den)))
 	    (setq inches (substr dist (+ dotpos1 2) (- (- dotpos2 dotpos1) 1)))
+	    (if (> (atof inches) 12)(alert "More that 12 inches - is that correct?"))
 	    (setq idist (+ idist (atof inches)))
 	    (setq feet (substr dist 1  dotpos1 ))
 	    (setq idist (+ idist (* (atof feet) 12)))
@@ -2725,6 +2810,7 @@
 	(if (and (/= dotpos1 nil) (= /pos1 nil))
 	  (progn
 	    (setq inches (substr dist ( + dotpos1 2) 50))
+	    (if (> (atof inches) 12)(alert "More that 12 inches - is that correct?"))
 	    (setq feet (substr dist 1  dotpos1 ))
 	    (setq idist  (atof inches))
 	    (setq idist (+ idist (* (atof feet) 12)))
@@ -2739,6 +2825,8 @@
 	    (setq dist (rtos (* idist 0.0254) 2 9))
 	    )
 	  )
+
+	
 ;radius in feet
 	
 	(setq dotpos1 (vl-string-position 46 radius 0))
@@ -2750,6 +2838,7 @@
 	    (setq num (substr radius ( + dotpos2 2) (- (- /pos1 dotpos2) 1)))
 	    (setq idist (/ (atof num) (atof den)))
 	    (setq inches (substr radius (+ dotpos1 2) (- (- dotpos2 dotpos1) 1)))
+	    (if (> (atof inches) 12)(alert "More that 12 inches - is that correct?"))
 	    (setq idist (+ idist (atof inches)))
 	    (setq feet (substr radius 1  dotpos1 ))
 	    (setq idist (+ idist (* (atof feet) 12)))
@@ -2759,6 +2848,7 @@
 	(if (and (/= dotpos1 nil) (= /pos1 nil))
 	  (progn
 	    (setq inches (substr radius ( + dotpos1 2) 50))
+	    (if (> (atof inches) 12)(alert "More that 12 inches - is that correct?"))
 	    (setq feet (substr radius 1  dotpos1 ))
 	    (setq idist  (atof inches))
 	    (setq idist (+ idist (* (atof feet) 12)))
@@ -2773,8 +2863,8 @@
 	    (setq radius (rtos (* idist 0.0254)))
 	    )
 	  )
-	
-
+(setq dist (rtos (atof dist)2 3));remove trailing zeros	
+(setq radius (rtos (atof radius)2 3));remove trailing zeros
 	
 	));if & p feet
 
@@ -2785,32 +2875,38 @@
       (setq dist (rtos (* dist 0.201168)))
       (setq radius (atof radius))
       (setq radius (rtos (* radius 0.201168)))
+      (setq dist (rtos (atof dist)2 3));remove trailing zeros
+      (setq radius (rtos (atof radius)2 3));remove trailing zeros
       
       )); if & p links
 
    (if (= units "DF")
     (progn
+      (if (vl-string-position 47 dist 0)(alert "/ entered when using decimal feet"))
+      (if (vl-string-position 47 radius 0)(alert "/ entered when using decimal feet"))
       (setq dist (atof dist))
       (setq dist (rtos (* dist 0.3048)))
       (setq radius (atof radius))
       (setq radius (rtos (* radius 0.3048)))
+      (setq dist (rtos (atof dist)2 3));remove trailing zeros	
+      (setq radius (rtos (atof radius)2 3));remove trailing zeros
       
       )); if & p decimal feet
 
 
-  (if (= arcdist "Y")(setq dist (rtos (* (* 2 (atof radius)) (sin (/ (atof dist) (* 2 (atof radius))))))))
+  (if (= arcdist "Y")(setq dist (rtos (* (* 2 (atof radius)) (sin (/ (atof dist) (* 2 (atof radius))))) 2 9)))
        
 	      
 
     ;DRAW LINE 1
   
-   (setq dist (rtos (atof dist)2 3));remove trailing zeros
+   ;(setq dist (rtos (atof dist)2 3));remove trailing zeros
   (if (= dist "0") (progn
 		     (princ "\nDistance of 0 entered")
 		     (exit))
     )
    
-  (setq dist (rtos (atof dist)2 3));remove trailing zeros
+  ;(setq dist (rtos (atof dist)2 3));remove trailing zeros
   (setq ldist dist)
   (setq lradius radius)
 
@@ -2828,8 +2924,8 @@
   (progn
       (SETQ SENT (ENTLAST))
   (SETQ SENTLIST (ENTGET SENT))
-    (setq p1 (CDR(ASSOC 10 sentlist)))
-    (setq p2 (CDR(ASSOC 11 sentlist)))
+    (setq p1 (trans (CDR(ASSOC 10 sentlist)) 0 1))
+    (setq p2 (trans (CDR(ASSOC 11 sentlist)) 0 1))
     (command "move" sent "" p2 p1)
 
 ;get last line end point
@@ -2863,8 +2959,8 @@
   (if (> offang (* 2 pi))(setq offang (- offang (* 2 pi))))
   (setq op2 (polar op1 offang 50))
   (setq intpt (inters ap1 ap2 op1 op2 nil))
-  (setq offangs (rtos (angle op1 intpt) 2 9))
-  (if (= (rtos offang 2 9) offangs)(setq curverot "ccw")(setq curverot "cw"))
+  (setq offangs (rtos (angle op1 intpt) 2 6))
+  (if (= (rtos offang 2 6) offangs)(setq curverot "ccw")(setq curverot "cw"))
   (setq prevrot curverot)
 
 
@@ -2892,6 +2988,27 @@
     (SETQ ARCLENGTH (RTOS arclength 2 3))
     ;(IF (< arclength 1) (SETQ DTS (STRCAT "0" DTS)))
  ))
+
+  ;round chord if rounding on
+  (if (and (= arcdist "Y") (= qround "YES"))
+    (progn
+      (SETQ dist (ATOF dist))
+ (IF (< dist DISTMAX1) (SETQ DROUND DRND1))
+    (IF (AND (> dist DISTMAX1)(< dist DISTMAX2)) (SETQ DROUND DRND2))
+    (IF (> dist DISTMAX2)(SETQ DROUND DRND3))
+			
+    (SETQ LIP (FIX (/ dist DROUND)))
+    (SETQ LFP (- (/ dist DROUND) LIP))
+    (IF (>= LFP 0.5 ) (SETQ LIP (+ LIP 1)))
+    (SETQ dist (* LIP DROUND))
+    
+    (SETQ dist (RTOS dist 2 3))
+    ;(IF (< arclength 1) (SETQ DTS (STRCAT "0" DTS)))
+      )
+    (setq dist (rtos (atof dist) 2 3));else just round to 3
+ )
+
+(setq ldist dist)
 
 
 	    
@@ -2946,6 +3063,8 @@
   (setq tp1  (trans ap1 1 0))
   (setq tp2  (trans ap2 1 0))
   (setq amp  (trans amp 1 0))
+
+  
   					   
   
    
@@ -3207,6 +3326,7 @@
 	    (setq num (substr dist ( + dotpos2 2) (- (- /pos1 dotpos2) 1)))
 	    (setq idist (/ (atof num) (atof den)))
 	    (setq inches (substr dist (+ dotpos1 2) (- (- dotpos2 dotpos1) 1)))
+	    (if (> (atof inches) 12)(alert "More that 12 inches - is that correct?"))
 	    (setq idist (+ idist (atof inches)))
 	    (setq feet (substr dist 1  dotpos1 ))
 	    (setq idist (+ idist (* (atof feet) 12)))
@@ -3216,6 +3336,7 @@
 	(if (and (/= dotpos1 nil) (= /pos1 nil))
 	  (progn
 	    (setq inches (substr dist ( + dotpos1 2) 50))
+	    (if (> (atof inches) 12)(alert "More that 12 inches - is that correct?"))
 	    (setq feet (substr dist 1  dotpos1 ))
 	    (setq idist  (atof inches))
 	    (setq idist (+ idist (* (atof feet) 12)))
@@ -3241,6 +3362,7 @@
 	    (setq num (substr radius ( + dotpos2 2) (- (- /pos1 dotpos2) 1)))
 	    (setq idist (/ (atof num) (atof den)))
 	    (setq inches (substr radius (+ dotpos1 2) (- (- dotpos2 dotpos1) 1)))
+	    (if (> (atof inches) 12)(alert "More that 12 inches - is that correct?"))
 	    (setq idist (+ idist (atof inches)))
 	    (setq feet (substr radius 1  dotpos1 ))
 	    (setq idist (+ idist (* (atof feet) 12)))
@@ -3250,6 +3372,7 @@
 	(if (and (/= dotpos1 nil) (= /pos1 nil))
 	  (progn
 	    (setq inches (substr radius ( + dotpos1 2) 50))
+	    (if (> (atof inches) 12)(alert "More that 12 inches - is that correct?"))
 	    (setq feet (substr radius 1  dotpos1 ))
 	    (setq idist  (atof inches))
 	    (setq idist (+ idist (* (atof feet) 12)))
@@ -3265,7 +3388,8 @@
 	    )
 	  )
 	
-
+(setq dist (rtos (atof dist)2 3));remove trailing zeros	
+(setq radius (rtos (atof radius)2 3));remove trailing zeros
 	
 	));if & p feet
 
@@ -3276,25 +3400,31 @@
       (setq dist (rtos (* dist 0.201168)))
       (setq radius (atof radius))
       (setq radius (rtos (* radius 0.201168)))
+      (setq dist (rtos (atof dist)2 3));remove trailing zeros	
+(setq radius (rtos (atof radius)2 3));remove trailing zeros
       
       )); if & p links
  (if (= units "DF")
     (progn
+      (if (vl-string-position 47 dist 0)(alert "/ entered when using decimal feet"))
+      (if (vl-string-position 47 radius 0)(alert "/ entered when using decimal feet"))
       (setq dist (atof dist))
       (setq dist (rtos (* dist 0.3048)))
       (setq radius (atof radius))
       (setq radius (rtos (* radius 0.3048)))
+      (setq dist (rtos (atof dist)2 3));remove trailing zeros	
+(setq radius (rtos (atof radius)2 3));remove trailing zeros
       
       )); if & p decimal feet
 
 
-(if (= arcdist "Y")(setq dist (rtos (* (* 2 (atof radius)) (sin (/ (atof dist) (* 2 (atof radius))))))))
+(if (= arcdist "Y")(setq dist (rtos (* (* 2 (atof radius)) (sin (/ (atof dist) (* 2 (atof radius))))) 2 9)))
 	      
 
     ;DRAW LINE 1
-  (setq dist (rtos (atof dist)2 3));remove trailing zeros
+  ;(setq dist (rtos (atof dist)2 3));remove trailing zeros
   (setq ldist dist)
-  (setq radius (rtos (atof radius)2 3));remove trailing zeros
+  ;(setq radius (rtos (atof radius)2 3));remove trailing zeros
   (setq lradius radius)
 		   
   
@@ -3319,8 +3449,8 @@
     (SETQ SENT (ENTLAST))
     (SETQ SENTLIST (ENTGET SENT))
 (setq p1 (CDR(ASSOC 10 sentlist)))
-    (setq p1 (CDR(ASSOC 10 sentlist)))
-    (setq p2 (CDR(ASSOC 11 sentlist)))
+    (setq p1 (trans (CDR(ASSOC 10 sentlist)) 0 1))
+    (setq p2 (trans (CDR(ASSOC 11 sentlist)) 0 1))
     (command "move" sent "" p2 p1)
 
 ;get last line end point
@@ -3355,8 +3485,8 @@
   (if (> offang (* 2 pi))(setq offang (- offang (* 2 pi))))
   (setq op2 (polar op1 offang 50))
   (setq intpt (inters ap1 ap2 op1 op2 nil))
-  (setq offangs (rtos (angle op1 intpt) 2 9))
-  (if (= (rtos offang 2 9) offangs)(setq curverot "ccw")(setq curverot "cw"))
+  (setq offangs (rtos (angle op1 intpt) 2 6))
+  (if (= (rtos offang 2 6) offangs)(setq curverot "ccw")(setq curverot "cw"))
 		   ))
 (setq prevrot curverot)
 
@@ -3408,6 +3538,27 @@
     ;(IF (< arclength 1) (SETQ DTS (STRCAT "0" DTS)))
  ))
 
+		    ;round chord if rounding on
+  (if (and (= arcdist "Y") (= qround "YES"))
+    (progn
+      (SETQ dist (ATOF dist))
+ (IF (< dist DISTMAX1) (SETQ DROUND DRND1))
+    (IF (AND (> dist DISTMAX1)(< dist DISTMAX2)) (SETQ DROUND DRND2))
+    (IF (> dist DISTMAX2)(SETQ DROUND DRND3))
+			
+    (SETQ LIP (FIX (/ dist DROUND)))
+    (SETQ LFP (- (/ dist DROUND) LIP))
+    (IF (>= LFP 0.5 ) (SETQ LIP (+ LIP 1)))
+    (SETQ dist (* LIP DROUND))
+    
+    (SETQ dist (RTOS dist 2 3))
+    ;(IF (< arclength 1) (SETQ DTS (STRCAT "0" DTS)))
+      )
+    (setq dist (rtos (atof dist) 2 3));else just round to 3
+ )
+
+(setq ldist dist)
+
   ;LOOK FOR SPECIAL COMMENTS
   (setq arctype "" )
   (IF (OR (= (STRCASE comment) "AD")(= (STRCASE comment) "ADOPT"))(setq arctype " arcType=\"Adopt Dimension\" "  comment ""))
@@ -3452,6 +3603,8 @@
 );P
     );WHILE 1>0
   );DEFUN
+
+
 
 
 
@@ -3592,14 +3745,14 @@
     (progn
       (setq area (rtos area1 2 3))
       (setq area1 (atof (rtos area1 2 3)));deal with recurring 9's
-      					    (if (> area1 0)(setq textarea (strcat (rtos (*  (/ area1 0.1) 0.1) 2 1) "m²")))
-					    (if (> area1 100)(setq textarea (strcat (rtos (*  (/ area1 1) 1) 2 0) "m²")))
+      					    (if (> area1 0)(setq textarea (strcat (rtos (*  (/ area1 0.1) 0.1) 2 1) "m ")))
+					    (if (> area1 100)(setq textarea (strcat (rtos (*  (/ area1 1) 1) 2 0) "m ")))
       					    (if (> area1 10000) (setq textarea (strcat (rtos (*  (/ (/ area1 10000) 0.001) 0.001) 2 3) "ha")))
 					    (if (> area1 100000) (setq textarea (strcat (rtos (*  (/ (/ area1 10000) 0.01) 0.01) 2 2) "ha")))
 					    (if (> area1 1000000) (setq textarea (strcat (rtos (*  (/ (/ area1 10000) 0.1) 0.1) 2 1) "ha")))
 					    (if (> area1 10000000) (setq textarea (strcat (rtos (*  (/ (/ area1 10000) 1) 1) 2 0) "ha")))
-                                            (if (> area1 100000000) (setq textarea (strcat (rtos (*  (/ (/ area1 1000000) 0.1) 0.1) 2 1) "km²")))
-                                            (if (> area1 1000000000) (setq textarea (strcat (rtos (*  (/ (/ area1 1000000) 1) 1) 2 0) "km²")))
+                                            (if (> area1 100000000) (setq textarea (strcat (rtos (*  (/ (/ area1 1000000) 0.1) 0.1) 2 1) "km ")))
+                                            (if (> area1 1000000000) (setq textarea (strcat (rtos (*  (/ (/ area1 1000000) 1) 1) 2 0) "km ")))
       
       
 					    
@@ -3608,15 +3761,15 @@
      (setq areapercent (ABS(* (/  (- area1 (ATOF area)) area1) 100)))
      (if (> areapercent 10) (alert (strcat "\nArea different to calulated by " (rtos areapercent 2 0)"%")))
 
-      (if (> (atof area) 1)(setq textarea (strcat (rtos (atof area) 2 3) "m²")))
- 					    (if (> (atof area) 0)(setq textarea (strcat (rtos (* (/ (atof area) 0.1) 0.1) 2 1) "m²")))
-					    (if (> (atof area) 100)(setq textarea (strcat (rtos (* (/ (atof area) 1) 1) 2 0) "m²")))
+      (if (> (atof area) 1)(setq textarea (strcat (rtos (atof area) 2 3) "m ")))
+ 					    (if (> (atof area) 0)(setq textarea (strcat (rtos (* (/ (atof area) 0.1) 0.1) 2 1) "m ")))
+					    (if (> (atof area) 100)(setq textarea (strcat (rtos (* (/ (atof area) 1) 1) 2 0) "m ")))
       					    (if (> (atof area) 10000) (setq textarea (strcat (rtos (* (/ (/ (atof area) 10000) 0.001) 0.001) 2 3) "ha")))
 					    (if (> (atof area) 100000) (setq textarea (strcat (rtos (*  (/ (/ (atof area) 10000) 0.01) 0.01) 2 2) "ha")))
 					    (if (> (atof area) 1000000) (setq textarea (strcat (rtos (*  (/ (/ (atof area) 10000) 0.1) 0.1) 2 1) "ha")))
 					    (if (> (atof area) 10000000) (setq textarea (strcat (rtos (*  (/ (/ (atof area) 10000) 1) 1) 2 0) "ha")))
-                                            (if (> (atof area) 100000000) (setq textarea (strcat (rtos (*  (/ (/ (atof area) 1000000) 0.1) 0.1) 2 1) "km²")))
-                                            (if (> (atof area) 1000000000) (setq textarea (strcat (rtos (* (/ (/ (atof area) 1000000) 1) 1) 2 0) "km²")))
+                                            (if (> (atof area) 100000000) (setq textarea (strcat (rtos (*  (/ (/ (atof area) 1000000) 0.1) 0.1) 2 1) "km ")))
+                                            (if (> (atof area) 1000000000) (setq textarea (strcat (rtos (* (/ (/ (atof area) 1000000) 1) 1) 2 0) "km ")))
 
      )
     )
@@ -4169,7 +4322,7 @@
 	    (SETQ XDATAI (NTH 1 XDATAI))
 	    (SETQ XDATAI (CDR (NTH 1 XDATAI)))
 
-		         (if (/= (setq stringpos (vl-string-search "name" xdatai )) nil)(progn
+		         (if (/= (setq stringpos (vl-string-search "name=" xdatai )) nil)(progn
 (setq wwpos (vl-string-position 34 xdatai (+ stringpos 6)))(setq pclname (substr xdatai (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))(setq pclname ""))
 
 		    (setq ename pclname)
@@ -4188,7 +4341,7 @@
 	    (SETQ XDATAI (NTH 1 XDATAI))
 	    (SETQ XDATAI (CDR (NTH 1 XDATAI)))
 
-		         (if (/= (setq stringpos (vl-string-search "name" xdatai )) nil)(progn
+		         (if (/= (setq stringpos (vl-string-search "name=" xdatai )) nil)(progn
 (setq wwpos (vl-string-position 34 xdatai (+ stringpos 6)))(setq pclname (substr xdatai (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))(setq pclname ""))
 
 		      (if (= (member pclname enamelist) nil)
@@ -4225,7 +4378,8 @@
 	   (setq prevowner owner)
 	  
    (setq width (getstring T (STRCAT "\nWidth(default is none):" )))
-	  
+
+  	  
 
 
 
@@ -4424,7 +4578,7 @@
 	    (SETQ XDATAI (NTH 1 XDATAI))
 	    (SETQ XDATAI (CDR (NTH 1 XDATAI)))
 
-		         (if (/= (setq stringpos (vl-string-search "name" xdatai )) nil)(progn
+		         (if (/= (setq stringpos (vl-string-search "name=" xdatai )) nil)(progn
 (setq wwpos (vl-string-position 34 xdatai (+ stringpos 6)))(setq resname (substr xdatai (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))(setq pclname ""))
 
 		   
@@ -4478,7 +4632,7 @@
 	    (SETQ XDATAI (CDR (NTH 1 XDATAI)))
     
 
- (if (/= (setq stringpos (vl-string-search "name" xdatai )) nil)(progn
+ (if (/= (setq stringpos (vl-string-search "name=" xdatai )) nil)(progn
 (setq wwpos (vl-string-position 34 xdatai (+ stringpos 6)))(setq pclname (substr xdatai (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))(setq pclname ""))
 
     ;if in burden list add title
@@ -4766,14 +4920,14 @@
     (progn
       (setq area (rtos area1 2 3))
       (setq area1 (atof (rtos area1 2 3)));deal with recurring 9's
-      					    (if (> area1 0)(setq textarea (strcat (rtos (*  (/ area1 0.1) 0.1) 2 1) "m²")))
-					    (if (> area1 100)(setq textarea (strcat (rtos (*  (/ area1 1) 1) 2 0) "m²")))
+      					    (if (> area1 0)(setq textarea (strcat (rtos (*  (/ area1 0.1) 0.1) 2 1) "m ")))
+					    (if (> area1 100)(setq textarea (strcat (rtos (*  (/ area1 1) 1) 2 0) "m ")))
       					    (if (> area1 10000) (setq textarea (strcat (rtos (*  (/ (/ area1 10000) 0.001) 0.001) 2 3) "ha")))
 					    (if (> area1 100000) (setq textarea (strcat (rtos (*  (/ (/ area1 10000) 0.01) 0.01) 2 2) "ha")))
 					    (if (> area1 1000000) (setq textarea (strcat (rtos (*  (/ (/ area1 10000) 0.1) 0.1) 2 1) "ha")))
 					    (if (> area1 10000000) (setq textarea (strcat (rtos (*  (/ (/ area1 10000) 1) 1) 2 0) "ha")))
-                                            (if (> area1 100000000) (setq textarea (strcat (rtos (*  (/ (/ area1 1000000) 0.1) 0.1) 2 1) "km²")))
-                                            (if (> area1 1000000000) (setq textarea (strcat (rtos (*  (/ (/ area1 1000000) 1) 1) 2 0) "km²")))
+                                            (if (> area1 100000000) (setq textarea (strcat (rtos (*  (/ (/ area1 1000000) 0.1) 0.1) 2 1) "km ")))
+                                            (if (> area1 1000000000) (setq textarea (strcat (rtos (*  (/ (/ area1 1000000) 1) 1) 2 0) "km ")))
       
       
 					    
@@ -4782,15 +4936,15 @@
      (setq areapercent (ABS(* (/  (- area1 (ATOF area)) area1) 100)))
      (if (> areapercent 10) (alert (strcat "\nArea different to calulated by " (rtos areapercent 2 0)"%")))
 
-      (if (> (atof area) 1)(setq textarea (strcat (rtos (atof area) 2 3) "m²")))
- 					    (if (> (atof area) 0)(setq textarea (strcat (rtos (* (/ (atof area) 0.1) 0.1) 2 1) "m²")))
-					    (if (> (atof area) 100)(setq textarea (strcat (rtos (* (/ (atof area) 1) 1) 2 0) "m²")))
+      (if (> (atof area) 1)(setq textarea (strcat (rtos (atof area) 2 3) "m ")))
+ 					    (if (> (atof area) 0)(setq textarea (strcat (rtos (* (/ (atof area) 0.1) 0.1) 2 1) "m ")))
+					    (if (> (atof area) 100)(setq textarea (strcat (rtos (* (/ (atof area) 1) 1) 2 0) "m ")))
       					    (if (> (atof area) 10000) (setq textarea (strcat (rtos (* (/ (/ (atof area) 10000) 0.001) 0.001) 2 3) "ha")))
 					    (if (> (atof area) 100000) (setq textarea (strcat (rtos (*  (/ (/ (atof area) 10000) 0.01) 0.01) 2 2) "ha")))
 					    (if (> (atof area) 1000000) (setq textarea (strcat (rtos (*  (/ (/ (atof area) 10000) 0.1) 0.1) 2 1) "ha")))
 					    (if (> (atof area) 10000000) (setq textarea (strcat (rtos (*  (/ (/ (atof area) 10000) 1) 1) 2 0) "ha")))
-                                            (if (> (atof area) 100000000) (setq textarea (strcat (rtos (*  (/ (/ (atof area) 1000000) 0.1) 0.1) 2 1) "km²")))
-                                            (if (> (atof area) 1000000000) (setq textarea (strcat (rtos (* (/ (/ (atof area) 1000000) 1) 1) 2 0) "km²")))
+                                            (if (> (atof area) 100000000) (setq textarea (strcat (rtos (*  (/ (/ (atof area) 1000000) 0.1) 0.1) 2 1) "km ")))
+                                            (if (> (atof area) 1000000000) (setq textarea (strcat (rtos (* (/ (/ (atof area) 1000000) 1) 1) 2 0) "km ")))
 
      )
     )
@@ -5672,9 +5826,19 @@
 
   
       ;line based kerb occ
+
+  (SETQ OFFO (RTOS OFF 2 3))
+  (IF (= OFFO "0")
+    (PROGN
+      (IF (/= COMMENT "")
+	(SETQ OFFO "ON BDY") ;IF ON BDY WITH NO COMMENT
+	(SETQ OFFO (STRCAT (SUBSTR COMMENT 2) " ON BDY"));IF ON BDT WITH COMMENT
+	)
+      )
+    (SETQ OFFO (STRCAT OFFO COMMENT)));ALL OTHERS
       
 	(command "line" occpnt p5 "")
-	(SETQ BDINFO (STRCAT "desc=\"(" (rtos off 2 3) COMMENT")\">"))
+	(SETQ BDINFO (STRCAT "desc=\"(" OFFO ")\">"))
  (SETQ SENT (ENTLAST))
   (SETQ SENTLIST (ENTGET SENT))
   (SETQ XDATA (LIST (LIST -3 (LIST "LANDXML" (CONS 1000 BDINFO)))))
@@ -5688,8 +5852,193 @@
 																	 just "BR"))
 					  (if (and (< off (* th 7))(or(<= (angle occpnt p5) (* 0.5 pi))(>= (angle occpnt p5)(* 1.5 pi))))(setq tpos p5
 																	 just "BL"))
+
+  
 	(setvar "clayer" "Drafting AFR")
-	(COMMAND "TEXT" "J" JUST TPOS TH (ANGTOS ANG 1 4) (strcat "(" (rtos off 2 3)  (strcase comment) ")"))
+	(COMMAND "TEXT" "J" JUST TPOS TH (ANGTOS ANG 1 4) (STRCAT "(" OFFO ")"))
+	
+	
+  
+;wall based monument offset
+     ; (if (or (= layer "Occupation Walls")(= layer "Occupation Fences")(= layer "Occupation Buildings"))(progn
+					;(command "point" occpnt)
+					;(setq overclear (getstring "\nOver or Clear [C]:"))
+					;(if (or (= overclear "o")(= overclear "O"))(setq overclear "Over"))
+					;(if (or (= overclear "")(= overclear "c")(= overclear "C"))(setq overclear "Clear"))
+  	;(SETQ BDINFO (STRCAT "type=\"Occupation\" state=\"Existing\" desc=\"" (rtos off 2 3) " " overclear "\" />"))
+ ;(SETQ SENT (ENTLAST))
+ ; (SETQ SENTLIST (ENTGET SENT))
+  ;(SETQ XDATA (LIST (LIST -3 (LIST "LANDXML" (CONS 1000 BDINFO)))))
+   ;(setq NEWSENTLIST (APPEND SENTLIST XDATA))
+  ;(ENTMOD NEWSENTLIST)
+					;(if (> off (* th 5))(setq tpos mp
+					;			  just "MC"))
+
+					 ; (if (and (< off (* th 7))(>= (angle occpnt p5) (* 0.5 pi))(<= (angle occpnt p5)(* 1.5 pi)))(setq tpos p5
+				;													 just "MR"))
+				;	  (if (and (< off (* th 7))(or(<= (angle occpnt p5) (* 0.5 pi))(>= (angle occpnt p5)(* 1.5 pi))))(setq tpos p5
+				;													 just "ML"))
+
+				;	  (setvar "clayer" "Drafting")
+	;(COMMAND "TEXT" "J" just tpos TH (ANGTOS ANG 1 4) (strcat "(" (rtos off 2 3) " " (substr overclear 1 2) ")"))
+	;				  ));p&if wall or fence
+				
+
+     
+(setvar "clayer" prevlayer)
+
+  
+  )
+
+
+;------------------------------------------------------------Create Occupation Offset Victorian style---------------------------------------------
+
+(defun C:XOV (/)
+  (SETQ AD "N")
+  (XOVIC)
+  )
+(DEFUN C:XOVA (/)
+  (SETQ AD "Y")
+  (XOVIC)
+  )
+
+(defun XOVIC (/)
+    (setq prevlayer (getvar "CLAYER"))
+
+  ;(setq occobj (car (entsel "\nSelect Object to Offset:" )))
+  (setq occpnt (getpoint "\nSelect Point to offset:" ))
+  (setq bdyline (car (entsel "\nSelect boundary line:" )))
+  (setq comment (getstring t "\nOccupation comment:" ))
+  ;(SETQ layer (CDR(ASSOC 8 (ENTGET occobj))))
+(if (/= comment "")(setq comment (strcat " " comment)))
+  
+  
+(if ( = (CDR(ASSOC 0 (ENTGET bdyline))) "LINE")(PROGN
+  (SETQ P1 (CDR(ASSOC 10 (ENTGET bdyline))))
+  (SETQ P2 (CDR(ASSOC 11 (ENTGET bdyline))))
+  (SETQ P1 (LIST (CAR P1)(CADR P1)))
+  (SETQ OCCPNT (TRANS OCCPNT 1 0))
+ ;check line one
+;check offset to line
+  (SETQ ANG (ANGLE P1 P2))
+  (SETQ CANG (+ ANG (/ PI 2)))
+  (SETQ P4 (POLAR occpnt CANG 50))
+  (SETQ P6 (POLAR occpnt (+ CANG PI) 50))
+   
+   (SETQ P5 (INTERS P1 P2 P6 P4 nil))					
+ 
+      (SETQ OFF (DISTANCE occpnt P5))
+      
+  (setq mp (list (/ (+ (car occpnt)(car p5)) 2)(/ (+ (cadr occpnt)(cadr p5)) 2)))
+
+  
+  (setq ang (angle (trans P1 0 1) (trans  P2 0 1)))
+  (if (and (> ang  (* 0.5 pi))(< ang (* 1.5 pi)))(setq ang (- ang pi)))
+  (if (< ang 0)(setq ang (+ ang (* 2 pi))))
+
+  ))
+
+    
+(if ( = (CDR(ASSOC 0 (ENTGET bdyline))) "ARC")(PROGN
+  (SETQ CP (CDR(ASSOC 10 (ENTGET bdyline))))
+  (SETQ RADIUS (CDR(ASSOC 40 (ENTGET bdyline))))
+  (SETQ CP (LIST (CAR CP) (CADR CP)))
+  
+  (SETQ ANG (ANGLE CP OCCPNT))
+
+  (SETQ P5 (POLAR CP ANG RADIUS))
+
+
+  
+
+  (SETQ OFF (DISTANCE occpnt P5))
+  
+      
+   
+
+  (setq mp (list (/ (+ (car occpnt)(car p5)) 2)(/ (+ (cadr occpnt)(cadr p5)) 2)))
+  (setq ang (+ (angle (trans occpnt 0 1) (trans  p5 0 1)) (/ pi 2)))
+  (if (and (> ang  (* 0.5 pi))(< ang (* 1.5 pi)))(setq ang (- ang pi)))
+  (if (< ang 0)(setq ang (+ ang (* 2 pi))))
+
+  ))
+
+  (XOVICO)
+  
+  )
+
+(defun XOVICO (/)
+
+  (IF (= QROUND "YES")
+    (progn
+   
+(SETQ LLEN OFF)
+      (IF (< LLEN DISTMAX1) (SETQ DROUND DRND1))
+    (IF (AND (> LLEN DISTMAX1)(< LLEN DISTMAX2)) (SETQ DROUND DRND2))
+    (IF (> LLEN DISTMAX2)(SETQ DROUND DRND3))
+			
+    (SETQ LIP (FIX (/ LLEN DROUND)))
+    (SETQ LFP (- (/ LLEN DROUND) LIP))
+    (IF (>= LFP 0.5 ) (SETQ LIP (+ LIP 1)))
+    (SETQ LLEN (* LIP DROUND))
+
+    (SETQ OFF  LLEN)
+    
+    ))
+
+  
+
+      (setvar "clayer" "Occupations")
+
+  (setq occpnt (trans occpnt 0 1))
+  (setq p5 (trans p5 0 1))
+
+   
+  (setq cang (+ (angle occpnt p5 ) (/ pi 2)))
+  (if (and (> cang  (* 0.5 pi))(< cang (* 1.5 pi)))(setq cang (- cang pi)))
+  (if (< cang 0)(setq cang (+ cang (* 2 pi))))
+
+  
+      ;line based kerb occ
+
+  (SETQ OFFO (RTOS OFF 2 3))
+  (IF (= OFFO "0")
+    (PROGN
+      (IF (/= COMMENT "")
+	(SETQ OFFO "ON BDY") ;IF ON BDY WITH NO COMMENT
+	(SETQ OFFO (STRCAT (SUBSTR COMMENT 2) " ON BDY"));IF ON BDT WITH COMMENT
+	)
+      )
+    (SETQ OFFO (STRCAT OFFO COMMENT)));ALL OTHERS
+      
+	(command "pline" p5 occpnt "")
+	(SETQ BDINFO (STRCAT "00," OFFO ))
+ (SETQ SENT (ENTLAST))
+  (SETQ SENTLIST (ENTGET SENT))
+  (SETQ XDATA (LIST (LIST -3 (LIST "LANDXML" (CONS 1000 BDINFO)))))
+   (setq NEWSENTLIST (APPEND SENTLIST XDATA))
+  (ENTMOD NEWSENTLIST)
+
+  ;(if (> off (* th 5))(setq tpos mp
+			 ;   just "BC"))
+
+					;  (if (and (< off (* th 7))(>= (angle occpnt p5) (* 0.5 pi))(<= (angle occpnt p5)(* 1.5 pi)))(setq tpos p5
+				;													 just "BR"))
+				;	  (if (and (< off (* th 7))(or(<= (angle occpnt p5) (* 0.5 pi))(>= (angle occpnt p5)(* 1.5 pi))))(setq tpos p5
+				;													 just "BL"))
+
+
+  (if (and (>= (ANGLE P5 OCCPNT) 0)(<= (ANGLE P5 OCCPNT)  pi))(setq just "L")(setq just "TR"))
+  
+	(setvar "clayer" "Drafting AFR")
+
+  (SETQ ADPOS (POLAR P5 (+ (ANGLE P5 OCCPNT) (* 1.5 PI)) (* 0.9 TH)))
+  (SETQ ADPOS (POLAR ADPOS  (ANGLE P5 OCCPNT) (* 0.15 TH)))
+  
+	;(COMMAND "TEXT" "J" JUST TPOS TH (ANGTOS ANG 1 4) (STRCAT "(" OFFO ")"))
+  (COMMAND "INSERT" "VCH0" P5  (rtos TH 2 5) (rtos TH 2 5) (ANGTOS (ANGLE P5 OCCPNT)))
+  (IF (= AD "Y")(COMMAND "TEXT" "J" JUST ADPOS TH (ANGTOS  cANG   1 4)  "AD" ))
+  (COMMAND "TEXT" "J" JUST OCCPNT TH (ANGTOS  cANG  1 4)  OFFO )
 	
 	
   
@@ -5726,13 +6075,13 @@
 
 
 
-
 ;-------------------------------------------------------------------DRAW CHAINAGE-------------------------------------
 (defun C:XTC (/)
 
   (setq entss (ssadd))
   (setq chainlist "00")
   (setq prevlayer (getvar "CLAYER"))
+  (setq ldist "0.00")
 
   ;GET 1ST LINE INFO
     (graphscr)
@@ -5991,6 +6340,7 @@
 	    (setq num (substr dist ( + dotpos2 2) (- (- /pos1 dotpos2) 1)))
 	    (setq idist (/ (atof num) (atof den)))
 	    (setq inches (substr dist (+ dotpos1 2) (- (- dotpos2 dotpos1) 1)))
+	    (if (> (atof inches) 12)(alert "More that 12 inches - is that correct?"))
 	    (setq idist (+ idist (atof inches)))
 	    (setq feet (substr dist 1  dotpos1 ))
 	    (setq idist (+ idist (* (atof feet) 12)))
@@ -6000,6 +6350,7 @@
 	(if (and (/= dotpos1 nil) (= /pos1 nil))
 	  (progn
 	    (setq inches (substr dist ( + dotpos1 2) 50))
+	    (if (> (atof inches) 12)(alert "More that 12 inches - is that correct?"))
 	    (setq feet (substr dist 1  dotpos1 ))
 	    (setq idist  (atof inches))
 	    (setq idist (+ idist (* (atof feet) 12)))
@@ -6024,6 +6375,7 @@
     )
   (if (= units "DF")
     (progn
+      (if (vl-string-position 47 dist 0)(alert "/ entered when using decimal feet"))
       (setq dist (atof dist))
       (setq dist (rtos (* dist 0.3048)))
       )
@@ -6034,15 +6386,21 @@
     ;DRAW LINE 1
      
   
+  
   (setq dist (rtos (atof dist)2 3));remove trailing zeros
+  
 
   (setq chainlist  (strcat chainlist ","  dist))
+  
+
+  (setq drawdist (rtos ( - (atof dist) (atof ldist)) 2 3))
+  (setq ldist dist)
   
   (if (= dist "0") (progn
 		     (princ "\nDistance of 0 entered")
 		     (exit))
     )
-  (setq ldist dist)
+  
   (SETQ lastdist dist)
   ;(if (= rswitch "T")(progn
 ;		       (setq deg (+ (atof deg) 180))
@@ -6052,7 +6410,7 @@
   (setq bearing (strcat  deg "d" mins sec))
 
   ;(setvar "clayer" "Occupations")
-  (setq linetext (strcat "@" dist "<" bearing))
+  (setq linetext (strcat "@" drawdist "<" bearing))
     (command "line" p1 linetext "")
     
   (if (/= comment "")(setq ocomment (strcat "><FieldNote>\"" comment "\"</FieldNote></ReducedObservation>"))(setq ocomment "/>"))
@@ -6071,29 +6429,29 @@
   
 (SETQ SENT (ENTLAST))
   (SETQ SENTLIST (ENTGET SENT))
-  (setq sp (CDR(ASSOC 10 sentlist)))
-(setq p1 (CDR(ASSOC 11 sentlist)))
+  (setq sp (trans (CDR(ASSOC 10 sentlist)) 0 1))
+(setq p1 (trans (CDR(ASSOC 11 sentlist)) 0 1))
 
    (if (= rswitch "T")
   (progn
-    (setq p1 (CDR(ASSOC 10 sentlist)))
-    (setq p2 (CDR(ASSOC 11 sentlist)))
+    (setq p1 (trans (CDR(ASSOC 10 sentlist)) 0 1))
+    (setq p2 (trans (CDR(ASSOC 11 sentlist)) 0 1))
     (command "move" sent "" p2 p1)
     ;get last line end point
 (SETQ SENT (ENTLAST))
   (SETQ SENTLIST (ENTGET SENT))
-(setq p1 (CDR(ASSOC 10 sentlist)))
-    (setq sp (CDR(ASSOC 11 sentlist)))
+(setq p1 (trans (CDR(ASSOC 10 sentlist)) 0 1))
+    (setq sp (trans (CDR(ASSOC 11 sentlist)) 0 1))
     ))
   
-    (SETQ CP1 (TRANS  sp 0 1))
-    (SETQ CP2 (TRANS  p1 0 1))
+    (SETQ CP1   sp )
+    (SETQ CP2   p1 )
     (SETQ ANG (- (ANGLE CP1 CP2) (* 0.5 pi)))
     (SETQ DANG (* ANG (/ 180 PI)))
 
     (IF (AND (> DANG 90) (<= DANG 270)) (PROGN
-					 (SETQ CP1 (TRANS P1 0 1))
-					 (SETQ CP2 (TRANS SP 0 1))
+					 (SETQ CP1  P1 )
+					 (SETQ CP2  SP )
 					 (SETQ ANG (- (ANGLE CP1 CP2) (* 0.5 PI)))
                                          (SETQ DANG (* ANG (/ 180 PI)))
 					 )
@@ -6107,7 +6465,7 @@
   
    (SETVAR "CLAYER"  "Drafting AFR" )
   (setq 00pos (polar sp (- (angle cp1 cp2) (* 0.5 pi)) (* 0.7 TH)))
-    (command "insert" "VCH0" "_S" TH 00pos (angtos (ANGLE (trans sp 0 1)(trans p1 0 1)) 1 4))
+    (command "insert" "VCH0" "_S" TH 00pos (angtos (ANGLE  sp p1) 1 4))
     (COMMAND "TEXT" "J" "ML" P1 TH (ANGTOS ANG 1 4) (strcat dist (strcase comment)))
 ;label ye old dist
   (if (or (= units "F")(= units "L")(= units "DF"))
@@ -6164,6 +6522,7 @@
 	    (setq num (substr dist ( + dotpos2 2) (- (- /pos1 dotpos2) 1)))
 	    (setq idist (/ (atof num) (atof den)))
 	    (setq inches (substr dist (+ dotpos1 2) (- (- dotpos2 dotpos1) 1)))
+	    (if (> (atof inches) 12)(alert "More that 12 inches - is that correct?"))
 	    (setq idist (+ idist (atof inches)))
 	    (setq feet (substr dist 1  dotpos1 ))
 	    (setq idist (+ idist (* (atof feet) 12)))
@@ -6173,6 +6532,7 @@
 	(if (and (/= dotpos1 nil) (= /pos1 nil))
 	  (progn
 	    (setq inches (substr dist ( + dotpos1 2) 50))
+	    (if (> (atof inches) 12)(alert "More that 12 inches - is that correct?"))
 	    (setq feet (substr dist 1  dotpos1 ))
 	    (setq idist  (atof inches))
 	    (setq idist (+ idist (* (atof feet) 12)))
@@ -6197,6 +6557,7 @@
     )
 	(if (= units "DF")
     (progn
+      (if (vl-string-position 47 dist 0)(alert "/ entered when using decimal feet"))
       (setq dist (atof dist))
       (setq dist (rtos (* dist 0.3048)))
       )
@@ -6226,14 +6587,14 @@
 				
 				
 				
- (SETQ CP1 (TRANS  sp 0 1))
-    (SETQ CP2 (TRANS  p1 0 1))
+ (SETQ CP1   sp )
+    (SETQ CP2  p1 )
     (SETQ ANG (ANGLE CP1 CP2))
     (SETQ DANG (* ANG (/ 180 PI)))
 
     (IF (AND (> DANG 90) (<= DANG 270)) (PROGN
-					 (SETQ CP1 (TRANS p1 0 1))
-					 (SETQ CP2 (TRANS sp 0 1))
+					 (SETQ CP1  p1 )
+					 (SETQ CP2  sp )
 					 (SETQ ANG (ANGLE CP1 CP2))
                                          (SETQ DANG (* ANG (/ 180 PI)))
 					 )
@@ -6243,7 +6604,7 @@
     (SETQ MP (LIST MPE MPN))
     (SETQ BPOS (POLAR MP (+ ANG (* 0.5 PI)) TH))
     (SETQ DPOS (POLAR MP (- ANG (* 0.5 PI)) TH))
-    (SETQ BTS (vl-string-subst  "°" "d" bearing))
+    (SETQ BTS (vl-string-subst  " " "d" bearing))
 
   (if (/= comment "")(setq comment (strcat " "comment)))
 
@@ -6256,10 +6617,14 @@
 		     
 		     (exit))
     );if no dist
+(setq drawdist (rtos (- (atof dist) (atof ldist)) ))
 	
+	;(setq dist (rtos ( - (atof dist) (atof ldist)) 2 3))
   (setq ldist dist)
-	(setq drawdist (rtos (- (atof dist) (atof lastdist))))
+	
 	   (setq lastdist drawdist)
+
+	
     
 
   (setq linetext (strcat "@" drawdist "<" bearing))
@@ -6278,7 +6643,7 @@
 	
 	
 	(setq lastdist dist)
-	(setq chainlist  (strcat chainlist ","  drawdist))
+	(setq chainlist  (strcat chainlist ","  dist))
 
 	(SETQ RMB (ENTLAST))
   (SSADD RMB ENTSS)
@@ -6286,17 +6651,17 @@
 ;get last line end point
 (SETQ SENT (ENTLAST))
   (SETQ SENTLIST (ENTGET SENT))
-(setq p1 (CDR(ASSOC 11 sentlist)))
+(setq p1 (trans (CDR(ASSOC 11 sentlist)) 0 1))
 
 		(if (= rswitch "T")
   (progn
-    (setq p1 (CDR(ASSOC 10 sentlist)))
-    (setq p2 (CDR(ASSOC 11 sentlist)))
+    (setq p1 (trans (CDR(ASSOC 10 sentlist)) 0 1))
+    (setq p2 (trans (CDR(ASSOC 11 sentlist)) 0 1))
     (command "move" sent "" p2 p1)
     ;get last line end point
 (SETQ SENT (ENTLAST))
   (SETQ SENTLIST (ENTGET SENT))
-(setq p1 (CDR(ASSOC 10 sentlist)))    
+(setq p1 (trans (CDR(ASSOC 10 sentlist)) 0 1))    
     ))
     
          
@@ -6326,6 +6691,8 @@
 );P
     );WHILE 1>0
   );DEFUN
+
+
 
 
 
@@ -6606,6 +6973,7 @@
 	    (setq num (substr dist ( + dotpos2 2) (- (- /pos1 dotpos2) 1)))
 	    (setq idist (/ (atof num) (atof den)))
 	    (setq inches (substr dist (+ dotpos1 2) (- (- dotpos2 dotpos1) 1)))
+	    (if (> (atof inches) 12)(alert "More that 12 inches - is that correct?"))
 	    (setq idist (+ idist (atof inches)))
 	    (setq feet (substr dist 1  dotpos1 ))
 	    (setq idist (+ idist (* (atof feet) 12)))
@@ -6615,6 +6983,7 @@
 	(if (and (/= dotpos1 nil) (= /pos1 nil))
 	  (progn
 	    (setq inches (substr dist ( + dotpos1 2) 50))
+	    (if (> (atof inches) 12)(alert "More that 12 inches - is that correct?"))
 	    (setq feet (substr dist 1  dotpos1 ))
 	    (setq idist  (atof inches))
 	    (setq idist (+ idist (* (atof feet) 12)))
@@ -6629,16 +6998,19 @@
 	    (setq dist (rtos (* idist 0.0254) 2 9))
 	    )
 	  )
+	(setq dist (rtos (atof dist)2 3));remove trailing zeros
       )
     )
   (if (= units "L")
     (progn
       (setq dist (atof dist))
       (setq dist (rtos (* dist 0.201168)))
+      (setq dist (rtos (atof dist)2 3));remove trailing zeros
       )
     )
   (if (= units "DF")
     (progn
+      (if (vl-string-position 47 dist 0)(alert "/ entered when using decimal feet"))
       (setq dist (atof dist))
       (setq dist (rtos (* dist 0.3048)))
       )
@@ -6648,6 +7020,13 @@
   ;offset
    (if (= units "F")
       (progn
+	(setq minus "n")
+	(if (= (substr off 1 1) "-")
+	  (progn
+	    (setq minus "y")
+	    (setq off (substr off 2))
+	    ))
+	  
 	 (setq dotpos1 (vl-string-position 46 off 0)) 
 		    
 	(if (= dotpos1 nil)(setq dotpos2 nil)(setq dotpos2 (vl-string-position 46 off (+ dotpos1 1))))
@@ -6658,6 +7037,7 @@
 	    (setq num (substr off ( + dotpos2 2) (- (- /pos1 dotpos2) 1)))
 	    (setq ioff (/ (atof num) (atof den)))
 	    (setq inches (substr off (+ dotpos1 2) (- (- dotpos2 dotpos1) 1)))
+	    (if (> (atof inches) 12)(alert "More that 12 inches - is that correct?"))
 	    (setq ioff (+ ioff (atof inches)))
 	    (setq feet (substr off 1  dotpos1 ))
 	    (setq ioff (+ ioff (* (atof feet) 12)))
@@ -6667,6 +7047,7 @@
 	(if (and (/= dotpos1 nil) (= /pos1 nil))
 	  (progn
 	    (setq inches (substr off ( + dotpos1 2) 50))
+	    (if (> (atof inches) 12)(alert "More that 12 inches - is that correct?"))
 	    (setq feet (substr off 1  dotpos1 ))
 	    (setq ioff  (atof inches))
 	    (setq ioff (+ ioff (* (atof feet) 12)))
@@ -6681,18 +7062,24 @@
 	    (setq off (rtos (* ioff 0.0254) 2 9))
 	    )
 	  )
+	(if (= minus "y")(setq off (rtos (* (atof off) -1) 2 9)) )
+	(setq off (rtos (atof off)2 3));remove trailing zeros
       )
     )
   (if (= units "L")
     (progn
       (setq off (atof off))
       (setq off (rtos (* off 0.201168)))
+      (setq off (rtos (atof off)2 3));remove trailing zeros
       )
     )
   (if (= units "DF")
     (progn
+      (if (vl-string-position 47 off 0)(alert "/ entered when using decimal feet"))
       (setq off (atof off))
       (setq off (rtos (* off 0.3048)))
+      (setq off (rtos (atof off)2 3));remove trailing zeros
+
       )
     )
 	      
@@ -6701,7 +7088,7 @@
     ;DRAW LINE 1
      
   
-  (setq dist (rtos (atof dist)2 3));remove trailing zeros
+
 
   (setq chainlist  (strcat chainlist ","  dist))
   
@@ -6738,29 +7125,29 @@
   
 (SETQ SENT (ENTLAST))
   (SETQ SENTLIST (ENTGET SENT))
-  (setq sp (CDR(ASSOC 10 sentlist)))
-(setq p1 (CDR(ASSOC 11 sentlist)))
+  (setq sp (trans (CDR(ASSOC 10 sentlist)) 0 1))
+(setq p1 (trans (CDR(ASSOC 11 sentlist)) 0 1))
 
    (if (= rswitch "T")
   (progn
-    (setq p1 (CDR(ASSOC 10 sentlist)))
-    (setq p2 (CDR(ASSOC 11 sentlist)))
+    (setq p1 (trans (CDR(ASSOC 10 sentlist)) 0 1))
+    (setq p2 (trans (CDR(ASSOC 11 sentlist)) 0 1))
     (command "move" sent "" p2 p1)
     ;get last line end point
 (SETQ SENT (ENTLAST))
   (SETQ SENTLIST (ENTGET SENT))
-(setq p1 (CDR(ASSOC 10 sentlist)))
-    (setq sp (CDR(ASSOC 11 sentlist)))
+(setq p1 (trans (CDR(ASSOC 10 sentlist)) 0 1))
+    (setq sp (trans (CDR(ASSOC 11 sentlist)) 0 1))
     ))
   
-    (SETQ CP1 (TRANS  sp 0 1))
-    (SETQ CP2 (TRANS  p1 0 1))
+    (SETQ CP1   sp )
+    (SETQ CP2   p1 )
     (SETQ ANG (- (ANGLE CP1 CP2) (* 0.5 pi)))
     (SETQ DANG (* ANG (/ 180 PI)))
 
     (IF (AND (> DANG 90) (<= DANG 270)) (PROGN
-					 (SETQ CP1 (TRANS P1 0 1))
-					 (SETQ CP2 (TRANS SP 0 1))
+					 (SETQ CP1  P1 )
+					 (SETQ CP2  SP )
 					 (SETQ ANG (- (ANGLE CP1 CP2) (* 0.5 PI)))
                                          (SETQ DANG (* ANG (/ 180 PI)))
 					 )
@@ -6774,7 +7161,7 @@
   
    (SETVAR "CLAYER"  "Drafting AFR" )
   (setq 00pos (polar sp (- (angle cp1 cp2) (* 0.5 pi)) (* 0.7 TH)))
-    (command "insert" "VCH0" "_S" TH 00pos (angtos (ANGLE (trans sp 0 1)(trans p1 0 1)) 1 4))
+    (command "insert" "VCH0" "_S" TH 00pos (angtos (ANGLE sp  p1 ) 1 4))
     (COMMAND "TEXT" "J" "ML" P1 TH (ANGTOS ANG 1 4) (strcat dist (strcase comment)))
 ;label ye old dist
   (if (or (= units "F")(= units "L")(= units "DF"))
@@ -6789,6 +7176,12 @@
       ))
 
   ;DRAW FIRST OFFSET
+
+  
+(if (and (/= off "" )(/= off "0"))
+  (progn
+
+  
   (setq offdeg (rtos (+ (atof deg) 90) 2 0))
   (setq offbear  (strcat offdeg "d" mins sec))
 
@@ -6856,12 +7249,10 @@
 (entmod theElist)
       ))
 	 
-    
+    ));if offset no 0
   
-  
+  (setvar "clayer" prevlayer)
 
-  
-(setvar "clayer" prevlayer)
 
   ;GET 2ND+ LINE INFO
   (while (> 1 0) (progn
@@ -6908,6 +7299,7 @@
 	    (setq num (substr dist ( + dotpos2 2) (- (- /pos1 dotpos2) 1)))
 	    (setq idist (/ (atof num) (atof den)))
 	    (setq inches (substr dist (+ dotpos1 2) (- (- dotpos2 dotpos1) 1)))
+	    (if (> (atof inches) 12)(alert "More that 12 inches - is that correct?"))
 	    (setq idist (+ idist (atof inches)))
 	    (setq feet (substr dist 1  dotpos1 ))
 	    (setq idist (+ idist (* (atof feet) 12)))
@@ -6917,6 +7309,7 @@
 	(if (and (/= dotpos1 nil) (= /pos1 nil))
 	  (progn
 	    (setq inches (substr dist ( + dotpos1 2) 50))
+	    (if (> (atof inches) 12)(alert "More that 12 inches - is that correct?"))
 	    (setq feet (substr dist 1  dotpos1 ))
 	    (setq idist  (atof inches))
 	    (setq idist (+ idist (* (atof feet) 12)))
@@ -6941,6 +7334,7 @@
     )
 	(if (= units "DF")
     (progn
+      (if (vl-string-position 47 dist 0)(alert "/ entered when using decimal feet"))
       (setq dist (atof dist))
       (setq dist (rtos (* dist 0.3048)))
       )
@@ -6959,6 +7353,7 @@
 	    (setq num (substr off ( + dotpos2 2) (- (- /pos1 dotpos2) 1)))
 	    (setq ioff (/ (atof num) (atof den)))
 	    (setq inches (substr off (+ dotpos1 2) (- (- dotpos2 dotpos1) 1)))
+	    (if (> (atof inches) 12)(alert "More that 12 inches - is that correct?"))
 	    (setq ioff (+ ioff (atof inches)))
 	    (setq feet (substr off 1  dotpos1 ))
 	    (setq ioff (+ ioff (* (atof feet) 12)))
@@ -6968,6 +7363,7 @@
 	(if (and (/= dotpos1 nil) (= /pos1 nil))
 	  (progn
 	    (setq inches (substr off ( + dotpos1 2) 50))
+	    (if (> (atof inches) 12)(alert "More that 12 inches - is that correct?"))
 	    (setq feet (substr off 1  dotpos1 ))
 	    (setq ioff  (atof inches))
 	    (setq ioff (+ ioff (* (atof feet) 12)))
@@ -6992,6 +7388,7 @@
     )
   (if (= units "DF")
     (progn
+      (if (vl-string-position 47 off 0)(alert "/ entered when using decimal feet"))
       (setq off (atof off))
       (setq off (rtos (* off 0.3048)))
       )
@@ -7038,7 +7435,7 @@
     (SETQ MP (LIST MPE MPN))
     (SETQ BPOS (POLAR MP (+ ANG (* 0.5 PI)) TH))
     (SETQ DPOS (POLAR MP (- ANG (* 0.5 PI)) TH))
-    (SETQ BTS (vl-string-subst  "°" "d" bearing))
+    (SETQ BTS (vl-string-subst  " " "d" bearing))
 
   (if (/= comment "")(setq comment (strcat " "comment)))
 
@@ -7051,6 +7448,8 @@
 		     
 		     (exit))
     );if no dist
+
+	
 	
   (setq ldist dist)
 	(setq drawdist (rtos (- (atof dist) (atof lastdist))))
@@ -7073,7 +7472,7 @@
 	
 	
 	(setq lastdist dist)
-	(setq chainlist  (strcat chainlist ","  drawdist))
+	(setq chainlist  (strcat chainlist ","  ldist))
 
 	(SETQ RMB (ENTLAST))
   (SSADD RMB ENTSS)
@@ -7081,17 +7480,17 @@
 ;get last line end point
 (SETQ SENT (ENTLAST))
   (SETQ SENTLIST (ENTGET SENT))
-(setq p1 (CDR(ASSOC 11 sentlist)))
+(setq p1 (trans (CDR(ASSOC 11 sentlist)) 0 1))
 
 		(if (= rswitch "T")
   (progn
-    (setq p1 (CDR(ASSOC 10 sentlist)))
-    (setq p2 (CDR(ASSOC 11 sentlist)))
+    (setq p1 (trans (CDR(ASSOC 10 sentlist)) 0 1))
+    (setq p2 (trans (CDR(ASSOC 11 sentlist)) 0 1))
     (command "move" sent "" p2 p1)
     ;get last line end point
 (SETQ SENT (ENTLAST))
   (SETQ SENTLIST (ENTGET SENT))
-(setq p1 (CDR(ASSOC 10 sentlist)))    
+(setq p1 (trans (CDR(ASSOC 10 sentlist)) 0 1))    
     ))
     
          
@@ -7120,7 +7519,9 @@
 
 
 
-
+(if (and (/= off "" )(/= off "0"))
+  (progn
+	 
 
 	 ;DRAW OFFSET 2+
   (setq offdeg (rtos (+ (atof deg) 90) 2 0))
@@ -7184,10 +7585,11 @@
 (SETQ textfont (ENTGET (tblobjname "style" textstyle)))
 (setq theElist (subst (cons 50 (* 20 (/ PI 180)))(assoc 50 theElist) textfont));make ye old distances slanty
 (entmod theElist)
-  (COMMAND "TEXT" "J" "ML" (POLAR P1 (- oANG (* pi 0.5)) (* 1.2 TH)) TH (ANGTOS oANG 1 4) (strcat yeoldoff))
+  (COMMAND "TEXT" "J" "ML" (POLAR (TRANS (CDR(ASSOC 11 sentlist)) 0 1) (- oANG (* pi 0.5)) (* 1.2 TH)) TH (ANGTOS oANG 1 4) (strcat yeoldoff))
   (setq theElist (subst (cons 50 0)(assoc 50 theElist) textfont));set slanty back to straight
 (entmod theElist)
       ))
+  ));if off not 0
 
 
 
@@ -7234,6 +7636,9 @@
 
 ;ROUND DISTANCES
 
+      (if (= qround "YES")
+      (progn
+
     (IF (< LLEN DISTMAX1) (SETQ DROUND DRND1))
     (IF (AND (> LLEN DISTMAX1)(< LLEN DISTMAX2)) (SETQ DROUND DRND2))
     (IF (> LLEN DISTMAX2)(SETQ DROUND DRND3))
@@ -7243,9 +7648,19 @@
     (IF (>= LFP 0.5 ) (SETQ LIP (+ LIP 1)))
     (SETQ LLEN (* LIP DROUND))
 
+   (SETQ WMLIP (FIX (/ LLEN 1.0)))
+     (SETQ WMLFP (- (/ LLEN 1.0) WMLIP))
+        (SETVAR "DIMZIN" 0)
+	(IF (< DROUND 0.01)(SETQ LDIST (RTOS LLEN 2 3)));ROUND T0 3 DP FOR LESS THAN 10MM ROUNDING WITH TRAILING ZEROS
+	(IF (AND (>= DROUND 0.01)(< DROUND 0.1))(SETQ LDIST (RTOS LLEN 2 2)));ROUND TO 10MM WITH TRAILING ZEROS
+        (SETVAR "DIMZIN" 8)
+        (IF (>= DROUND 0.1)(SETQ LDIST (RTOS LLEN 2 3)));ROUND TO 0.1
+	(IF (= WMLFP 0)(SETQ LDIST (RTOS LLEN 2 3)));REMOVE TRAILING ZEROS ON WHOLE METERS
+  )
+
     (SETQ LDIST (RTOS LLEN 2 3))
     
-  
+  )
 
 (setq chaindist LLEN)
 (setq chainlist  (strcat chainlist ","  LDIST))
@@ -7274,8 +7689,8 @@
   (REPEAT (- (LENGTH PTLIST) 2)
     (setq p1 (nth count ptlist))
     (setq p2 (nth (+ count 1) ptlist))
-    (setq dist (distance p1 p2))
-    (setq chaindist (+ chaindist dist))
+    (setq dist (distance sp p2))
+    (setq chaindist  dist)
     (SETQ LLEN CHAINDIST)
 	  
 ;ROUND DISTANCES
@@ -7290,9 +7705,20 @@
     (SETQ LFP (- (/ LLEN DROUND) LIP))
     (IF (>= LFP 0.5 ) (SETQ LIP (+ LIP 1)))
     (SETQ LLEN (* LIP DROUND))
-    ))
+
+     (SETQ WMLIP (FIX (/ LLEN 1.0)))
+     (SETQ WMLFP (- (/ LLEN 1.0) WMLIP))
+        (SETVAR "DIMZIN" 0)
+	(IF (< DROUND 0.01)(SETQ LDIST (RTOS LLEN 2 3)));ROUND T0 3 DP FOR LESS THAN 10MM ROUNDING WITH TRAILING ZEROS
+	(IF (AND (>= DROUND 0.01)(< DROUND 0.1))(SETQ LDIST (RTOS LLEN 2 2)));ROUND TO 10MM WITH TRAILING ZEROS
+        (SETVAR "DIMZIN" 8)
+        (IF (>= DROUND 0.1)(SETQ LDIST (RTOS LLEN 2 3)));ROUND TO 0.1
+	(IF (= WMLFP 0)(SETQ LDIST (RTOS LLEN 2 3)));REMOVE TRAILING ZEROS ON WHOLE METERS
+    )
 
     (SETQ LDIST (RTOS LLEN 2 3))
+
+     )
     
     ;(IF (< LLEN 1) (SETQ DTS (STRCAT "0" DTS)))
     
@@ -7455,7 +7881,7 @@
     (SETQ MP (LIST MPE MPN))
     (SETQ BPOS (POLAR MP (+ ANG (* 0.5 PI)) TH))
     (SETQ DPOS (POLAR MP (- ANG (* 0.5 PI)) TH))
-    (SETQ BTS (vl-string-subst  "°" "d" bearing))
+    (SETQ BTS (vl-string-subst  " " "d" bearing))
 
  
   (setq prevlayer (getvar "CLAYER"))
@@ -7752,7 +8178,9 @@
   ;get first segment
    (setq sp (nth 0 ptlist))
   (setq p1 (nth 1 ptlist))
+  ;(setq firstang (rtos (angle sp p1) 2 9))
 (setq LLEN (distance sp p1))
+  (setq chaindist LLEN)
   
 ;ROUND DISTANCES
 
@@ -7766,13 +8194,22 @@
     (SETQ LFP (- (/ LLEN DROUND) LIP))
     (IF (>= LFP 0.5 ) (SETQ LIP (+ LIP 1)))
     (SETQ LLEN (* LIP DROUND))
-    
+
+         (SETQ WMLIP (FIX (/ LLEN 1.0)))
+     (SETQ WMLFP (- (/ LLEN 1.0) WMLIP))
+        (SETVAR "DIMZIN" 0)
+	(IF (< DROUND 0.01)(SETQ LDIST (RTOS LLEN 2 3)));ROUND T0 3 DP FOR LESS THAN 10MM ROUNDING WITH TRAILING ZEROS
+	(IF (AND (>= DROUND 0.01)(< DROUND 0.1))(SETQ LDIST (RTOS LLEN 2 2)));ROUND TO 10MM WITH TRAILING ZEROS
+        (SETVAR "DIMZIN" 8)
+        (IF (>= DROUND 0.1)(SETQ LDIST (RTOS LLEN 2 3)));ROUND TO 0.1
+	(IF (= WMLFP 0)(SETQ LDIST (RTOS LLEN 2 3)));REMOVE TRAILING ZEROS ON WHOLE METERS
+    )
 
     (SETQ LDIST (RTOS LLEN 2 3))
-    ))
+    )
   
 
-(setq chaindist LLEN)
+
 (setq chainlist  (strcat chainlist ","  LDIST))
   
     (SETQ CP1 (TRANS  sp 0 1))
@@ -7800,12 +8237,14 @@
   (REPEAT (- (LENGTH PTLIST) 2)
     (setq p1 (nth count ptlist))
     (setq p2 (nth (+ count 1) ptlist))
-    (setq dist (distance p1 p2))
-    (setq chaindist (+ chaindist dist))
+    (setq dist (distance sp p2))
+    (setq chaindist dist)
     (SETQ LLEN CHAINDIST)
 	  
 ;ROUND DISTANCES
 
+    (if (= qround "YES")
+      (progn
     (IF (< LLEN DISTMAX1) (SETQ DROUND DRND1))
     (IF (AND (> LLEN DISTMAX1)(< LLEN DISTMAX2)) (SETQ DROUND DRND2))
     (IF (> LLEN DISTMAX2)(SETQ DROUND DRND3))
@@ -7815,14 +8254,24 @@
     (IF (>= LFP 0.5 ) (SETQ LIP (+ LIP 1)))
     (SETQ LLEN (* LIP DROUND))
 
-    (SETQ LDIST (RTOS LLEN 2 3))
+         (SETQ WMLIP (FIX (/ LLEN 1.0)))
+     (SETQ WMLFP (- (/ LLEN 1.0) WMLIP))
+        (SETVAR "DIMZIN" 0)
+	(IF (< DROUND 0.01)(SETQ LDIST (RTOS LLEN 2 3)));ROUND T0 3 DP FOR LESS THAN 10MM ROUNDING WITH TRAILING ZEROS
+	(IF (AND (>= DROUND 0.01)(< DROUND 0.1))(SETQ LDIST (RTOS LLEN 2 2)));ROUND TO 10MM WITH TRAILING ZEROS
+        (SETVAR "DIMZIN" 8)
+        (IF (>= DROUND 0.1)(SETQ LDIST (RTOS LLEN 2 3)));ROUND TO 0.1
+	(IF (= WMLFP 0)(SETQ LDIST (RTOS LLEN 2 3)));REMOVE TRAILING ZEROS ON WHOLE METERS
+)
+   (SETQ LDIST (RTOS LLEN 2 3))
+      )
     
     ;(IF (< LLEN 1) (SETQ DTS (STRCAT "0" DTS)))
     
     (COMMAND "TEXT" "J" "ML" (trans P2 0 1) TH (ANGTOS ANG 1 4) ldist )
     (SETQ COUNT (+ COUNT 1))
 
-    (setq chainlist  (strcat chainlist ","  (rtos DIST 2 3)))
+    (setq chainlist  (strcat chainlist ","  ldist))
     
     );R
 
@@ -7978,7 +8427,7 @@
     (SETQ MP (LIST MPE MPN))
     (SETQ BPOS (POLAR MP (+ ANG (* 0.5 PI)) TH))
     (SETQ DPOS (POLAR MP (- ANG (* 0.5 PI)) TH))
-    (SETQ BTS (vl-string-subst  "°" "d" bearing))
+    (SETQ BTS (vl-string-subst  " " "d" bearing))
 
  
   (setq prevlayer (getvar "CLAYER"))
@@ -8003,9 +8452,22 @@
 
 ;-----------------------------------------------------------------------------CREATE CHAINAGE AND OFFSETS----------------------------------------------------
 (defun C:XCHO (/)
+  (setq STOPCOMMENT "N")
+  (XCHOF)
+  )
 
+(defun C:XCHON (/)
+  (setq STOPCOMMENT "Y")
+  (XCHOF)
+  )
+
+
+
+  (defun xchof (/)
+  
   (setq chainlist "00")
   (setq prevlayer (getvar "CLAYER"))
+    (SETQ COMLIST (LIST))
 
  (SETQ SENT (CAR (ENTSEL "\nSelect Occupation Polyline:")))
   (setq bearing (getstring "\nBearing of line(or enter to select line):"))
@@ -8261,6 +8723,26 @@
     (setq intpt (inters sp (polar sp ang 100) p2 (polar p2 (+ ang (* pi 0.5)) 100) nil))
     (setq ptlist2 (append ptlist2 (LIST intpt)))
 
+    (IF (= STOPCOMMENT "Y")
+	(PROGN
+	  (SETQ ENTSS (SSADD))
+	  (COMMAND "XLINE" "A" "45" P2 "")
+	  (SETQ XL (ENTLAST))
+	(SSADD XL ENTSS)
+	  (COMMAND "XLINE" "A" "135" P2 "")
+	  (SETQ XL (ENTLAST))
+	  (SSADD XL ENTSS)
+	  (COMMAND "ZOOM" "C" P2 "")
+	  (COMMAND "CHANGE" ENTSS "" "P" "C" "3" "")
+	  (SETQ COMMENT (GETSTRING "Comment:"))
+	  (COMMAND "ERASE" ENTSS "")
+	  
+	  )
+	(setq comment "")
+	)
+
+      (SETQ COMLIST (APPEND COMLIST (LIST COMMENT)))
+
 ;LABEL OFFSET
     (SETQ OFF (DISTANCE P2 INTPT))
      (IF (= QROUND "YES")
@@ -8276,11 +8758,23 @@
     (IF (>= LFP 0.5 ) (SETQ LIP (+ LIP 1)))
     (SETQ LLEN (* LIP DROUND))
 
+
+         (SETQ WMLIP (FIX (/ LLEN 1.0)))
+     (SETQ WMLFP (- (/ LLEN 1.0) WMLIP))
+        (SETVAR "DIMZIN" 0)
+	(IF (< DROUND 0.01)(SETQ OFF (RTOS LLEN 2 3)));ROUND T0 3 DP FOR LESS THAN 10MM ROUNDING WITH TRAILING ZEROS
+	(IF (AND (>= DROUND 0.01)(< DROUND 0.1))(SETQ OFF (RTOS LLEN 2 2)));ROUND TO 10MM WITH TRAILING ZEROS
+        (SETVAR "DIMZIN" 8)
+        (IF (>= DROUND 0.1)(SETQ OFF (RTOS LLEN 2 3)));ROUND TO 0.1
+	(IF (= WMLFP 0)(SETQ OFF (RTOS LLEN 2 3)));REMOVE TRAILING ZEROS ON WHOLE METERS
+
+
     (SETQ OFF  LLEN)
     
     ))
 
-  
+  (if (/= off 0)
+    (progn
 
       (setvar "clayer" "Occupations")
 
@@ -8314,7 +8808,9 @@
 
 					  (if (and (< off (* th 7))(>= (angle p2 intpt) (* 0.5 pi))(<= (angle p2 intpt)(* 1.5 pi)))(progn
 																     (setq tpos (polar p2 (+ ang1 (* 0.5 pi)) (* 0.6 th)))
+																     (setq tpos (polar tpos ang1 (* 0.6 th)))
 																     (setq ap1 (polar p2 (+ ang1 (* 0.5 pi)) (* 1.1 th)))
+																     (setq ap1 (polar ap1 ang1 (* 0.6 th)))
 																     (setq ap2 (polar mp (+ ang1 (* 0.5 pi)) (* 0.6 th)))
 																	 (setq just "BL")
 																     (command "spline" ap1 ap2 mp "" "" "")
@@ -8322,17 +8818,19 @@
 					    
 					  (if (and (< off (* th 7))(or(<= (angle p2 intpt) (* 0.5 pi))(>= (angle p2 intpt)(* 1.5 pi))))(progn
 																	 (setq tpos (polar p2 (+ ang1 (* 0.5 pi)) (* 0.6 th)))
+																	 (setq tpos (polar tpos ang1 (* -0.6 th)))
 																	 (setq ap1 (polar p2 (+ ang1 (* 0.5 pi)) (* 1.1 th)))
+																	 (setq ap1 (polar ap1 ang1 (* -0.6 th)))
 																	 (setq ap2 (polar mp (+ ang1 (* 0.5 pi)) (* 0.6 th)))
 																	 (setq just "BR")
 																	 (command "spline" ap1 ap2 mp "" "" "")
 																		));p&if
 	
-	(COMMAND "TEXT" "J" JUST TPOS TH (ANGTOS  ANG1 1 4) (strcat "(" (rtos off 2 3)   ")"))
+	(COMMAND "TEXT" "J" JUST TPOS TH (ANGTOS  ANG1 1 4) (strcat "(" (rtos off 2 3) COMMENT  ")"))
     
 
 
-
+))
 
 
     
@@ -8361,7 +8859,10 @@
   ;get first segment
    (setq sp (nth 0 ptlist))
   (setq p1 (nth 1 ptlist))
-(setq LLEN (distance sp p1))
+  (setq LLEN (distance sp p1))
+    (SETQ COMMENT (NTH 0 COMLIST))
+
+  (setq chaindist LLEN)
   
 ;ROUND DISTANCES
 
@@ -8375,13 +8876,23 @@
     (SETQ LFP (- (/ LLEN DROUND) LIP))
     (IF (>= LFP 0.5 ) (SETQ LIP (+ LIP 1)))
     (SETQ LLEN (* LIP DROUND))
-    ))
+
+             (SETQ WMLIP (FIX (/ LLEN 1.0)))
+     (SETQ WMLFP (- (/ LLEN 1.0) WMLIP))
+        (SETVAR "DIMZIN" 0)
+	(IF (< DROUND 0.01)(SETQ LDIST (RTOS LLEN 2 3)));ROUND T0 3 DP FOR LESS THAN 10MM ROUNDING WITH TRAILING ZEROS
+	(IF (AND (>= DROUND 0.01)(< DROUND 0.1))(SETQ LDIST (RTOS LLEN 2 2)));ROUND TO 10MM WITH TRAILING ZEROS
+        (SETVAR "DIMZIN" 8)
+        (IF (>= DROUND 0.1)(SETQ LDIST (RTOS LLEN 2 3)));ROUND TO 0.1
+	(IF (= WMLFP 0)(SETQ LDIST (RTOS LLEN 2 3)));REMOVE TRAILING ZEROS ON WHOLE METERS
+    
+    )
 
     (SETQ LDIST (RTOS LLEN 2 3))
+
+    )
     
   
-
-(setq chaindist LLEN)
 (setq chainlist  (strcat chainlist ","  LDIST))
   
     (SETQ CP1 (TRANS  sp 0 1))
@@ -8402,19 +8913,26 @@
    (SETVAR "CLAYER"  "Drafting AFR" )
   (setq 00pos (polar sp (- (angle cp1 cp2) (* 0.5 pi)) (* 0.7 TH)))
     (command "insert" "VCH0" "_S" TH (trans 00pos 0 1) (angtos (ANGLE (trans sp 0 1)(trans p1 0 1)) 1 4))
-    (COMMAND "TEXT" "J" "ML" (trans P1 0 1) TH (ANGTOS ANG 1 4)  ldist )
+  (setq p1 (polar p1 ang (* 0.6 th)))
+    (COMMAND "TEXT" "J" "ML" (trans P1 0 1) TH (ANGTOS ANG 1 4) (STRCAT ldist COMMENT ))
 
   ;continue for reamining segements
   (SETQ COUNT 1)
   (REPEAT (- (LENGTH PTLIST) 2)
     (setq p1 (nth count ptlist))
     (setq p2 (nth (+ count 1) ptlist))
-    (setq dist (distance p1 p2))
-    (setq chaindist (+ chaindist dist))
+    (SETQ COMMENT (NTH COUNT COMLIST))
+    (setq dist (distance sp p2))
+    (setq chaindist  dist)
     (SETQ LLEN CHAINDIST)
+
+   
 	  
 ;ROUND DISTANCES
 
+    (if (= qround "YES")
+      (PROGN
+      
     (IF (< LLEN DISTMAX1) (SETQ DROUND DRND1))
     (IF (AND (> LLEN DISTMAX1)(< LLEN DISTMAX2)) (SETQ DROUND DRND2))
     (IF (> LLEN DISTMAX2)(SETQ DROUND DRND3))
@@ -8423,12 +8941,24 @@
     (SETQ LFP (- (/ LLEN DROUND) LIP))
     (IF (>= LFP 0.5 ) (SETQ LIP (+ LIP 1)))
     (SETQ LLEN (* LIP DROUND))
+   (SETQ WMLIP (FIX (/ LLEN 1.0)))
+     (SETQ WMLFP (- (/ LLEN 1.0) WMLIP))
+        (SETVAR "DIMZIN" 0)
+	(IF (< DROUND 0.01)(SETQ LDIST (RTOS LLEN 2 3)));ROUND T0 3 DP FOR LESS THAN 10MM ROUNDING WITH TRAILING ZEROS
+	(IF (AND (>= DROUND 0.01)(< DROUND 0.1))(SETQ LDIST (RTOS LLEN 2 2)));ROUND TO 10MM WITH TRAILING ZEROS
+        (SETVAR "DIMZIN" 8)
+        (IF (>= DROUND 0.1)(SETQ LDIST (RTOS LLEN 2 3)));ROUND TO 0.1
+	(IF (= WMLFP 0)(SETQ LDIST (RTOS LLEN 2 3)));REMOVE TRAILING ZEROS ON WHOLE METERS
+      
+      )
 
     (SETQ LDIST (RTOS LLEN 2 3))
+      )
+    
     
     ;(IF (< LLEN 1) (SETQ DTS (STRCAT "0" DTS)))
-    
-    (COMMAND "TEXT" "J" "ML" (trans P2 0 1) TH (ANGTOS ANG 1 4) ldist )
+    (setq tp2 (polar p2 ang (* 0.6 th)))
+    (COMMAND "TEXT" "J" "ML" (trans tP2 0 1) TH (ANGTOS ANG 1 4) (STRCAT ldist COMMENT ))
     (SETQ COUNT (+ COUNT 1))
 
     (setq chainlist  (strcat chainlist ","  (rtos DIST 2 3)))
@@ -8587,10 +9117,624 @@
     (SETQ MP (LIST MPE MPN))
     (SETQ BPOS (POLAR MP (+ ANG (* 0.5 PI)) TH))
     (SETQ DPOS (POLAR MP (- ANG (* 0.5 PI)) TH))
-    (SETQ BTS (vl-string-subst  "°" "d" bearing))
+    (SETQ BTS (vl-string-subst  " " "d" bearing))
 
  
+  
+   (SETVAR "CLAYER"  "Drafting AFR" )
+    (COMMAND "TEXT" "J" "MC" BPOS TH (ANGTOS ANG 1 4) BTS)
+
+
+  (SETQ XDATA (LIST (LIST -3 (LIST "LANDXML" (CONS 1000 chainlist)))))
+   (setq NEWSENTLIST (APPEND SENTLIST XDATA))
+  (ENTMOD NEWSENTLIST)
+  
+  (setvar "clayer" prevlayer)
+
+  )
+
+
+
+
+
+
+;-----------------------------------------------------------------------------CREATE CHAINAGE AND OFFSETS----------------------------------------------------
+(defun C:XCHOV (/)
+  (SETQ STOPCOMMENT "N")
+  (XCHOVF)
+  )
+
+(defun C:XCHOVN (/)
+  (SETQ STOPCOMMENT "Y")
+  (XCHOVF)
+  )
+
+
+  (defun XCHOVF (/)
+
+  (setq chainlist "00")
   (setq prevlayer (getvar "CLAYER"))
+    (SETQ COMLIST (LIST))
+
+ (SETQ SENT (CAR (ENTSEL "\nSelect Occupation Polyline:")))
+  (setq bearing (getstring "\nBearing of line(or enter to select line):"))
+  (if (= bearing "")(progn
+		      (SETQ BENT (entget (CAR (ENTSEL "\nSelect Line:"))))
+		      (setq p1 (cdr (assoc 10 bent)))
+		      (setq p2 (cdr (assoc 11 bent)))
+		      (setq LAYER (cdr (assoc 8 bent)))
+		      (IF 	    (or (/= nil (vl-string-search "Boundary" layer  ))
+					(/= nil (vl-string-search "BOUNDARY" layer  ))
+					(/= nil (vl-string-search "boundary" layer  )))
+			(SETQ AD "Y")(SETQ AD "N"))
+		       (SETQ ANG (ANGLE  P1  P2 ))
+
+  (SETQ BEARING (ANGTOS ANG 1 4));REQUIRED FOR ELSE ROUND
+  (setq bearing (vl-string-subst "d" (chr 176) bearing));added for BricsCAD changes degrees to "d"
+
+		      ;adding bearing calculator
+		      )
+
+		      (progn
+
+     ;reverse
+  (if (or (= (substr bearing 1 1 ) "r") (= (substr bearing 1 1 ) "R" ))
+    (progn
+      (setq bearing (substr bearing 2 50))
+      (setq rswitch "T")
+      )
+     (setq rswitch "F")
+    )
+
+;look for cardinals
+  (setq card1 ""
+	card2 "")
+  (IF (OR (= (substr bearing 1 1 ) "n") (= (substr bearing 1 1 ) "N" )
+	  (= (substr bearing 1 1 ) "s" )(= (substr bearing 1 1 ) "S" )
+	  (= (substr bearing 1 1 ) "e" )(= (substr bearing 1 1 ) "E" )
+	  (= (substr bearing 1 1 ) "w" )(= (substr bearing 1 1 ) "W" ))
+(progn
+    (setq card1 (substr bearing 1 1))
+    (setq card2 (substr bearing (strlen bearing) 1))
+    (setq bearing (substr bearing 2 (- (strlen bearing )2)))
+  )
+    )
+    
+  
+(if (/= (vl-string-position 46 bearing 0) nil ) (PROGN
+  (setq dotpt1 (vl-string-position 46 bearing 0))
+  (setq deg  (substr bearing 1  dotpt1 ))
+  (SETQ mins  (strcat (substr bearing (+ dotpt1 2) 2) (chr 39)))
+  (setq sec  (substr bearing (+ dotpt1 4) 10))
+
+  
+  (if (> (strlen sec) 2) (setq sec (strcat (substr sec 1 2) "." (substr sec 3 10))))
+  (if (= (strlen sec) 0) (setq sec "") (setq sec (strcat sec (chr 34))))
+
+  
+  (if (or
+	(= (strlen sec) 2)
+	(= (strlen mins) 2)
+	(> (atof mins) 60)
+	(> (atof sec) 60)
+	(> (atof deg) 360)
+	)
+    (alert (strcat "That bearing looks a little funky - " bearing)))
+  
+  
+  );P
+	(progn
+	  (setq deg bearing)
+	  (setq mins "")
+	  (setq sec "")
+	  );p else
+  
+  );IF
+
+ ;correct cardinals
+
+    (IF  (and (or (= card1 "n")(= card1 "N")(= card1 "s")(= card1 "S"))(and (/= card2 "w")(/= card2 "W")(/= card2 "e")(/= card2 "E")))
+	  (alert (strcat "Cardinal missing E or W"))
+    )
+  
+  (if (and (or (= card1 "n")(= card1 "N"))(or (= card2 "w")(= card2 "W")))
+    (progn
+      (setq deg (rtos (- 360 (atof deg)) 2 0))
+      (if (< 0 (atof mins))(progn
+			     (setq mins (strcat (rtos (- 60 (atof mins)) 2 0) (chr 39)))
+			     (setq deg (rtos (- (atof deg) 1) 2 0))
+			     (if (< (atof deg) 0)(setq deg (rtos (+ (atof deg) 360) 2 0)))
+				)
+	     )
+	(if (< 0 (atof sec))
+	       (progn
+		 (setq sec (strcat (rtos (- 60 (atof sec)) 2 0) (chr 34)))
+		 (if (= 0 (atof mins)) (setq deg (rtos (- (atof deg) 1) 2 0)))
+		 (setq mins (strcat (rtos (- (atof mins) 1) 2 0) (chr 39)))
+	       
+		 (if (< (atof deg) 0)(setq deg (rtos (+ (atof deg) 360) 2 0)))
+		 (if (< (atof mins) 0)(setq mins (strcat (rtos (+ (atof mins) 60) 2 0)(chr 39))))
+		 )
+	  )
+      	           
+(if (or (and (< (atof mins) 10)(/= 0 (atof mins))) (= mins "0'")) (setq mins (strcat "0" mins)))
+(if (and (< (atof sec) 10)(/= 0 (atof sec))) (setq sec (strcat "0" sec)))
+		 
+      )
+    );NW
+
+		   
+
+		   (if (and (or (= card1 "w")(= card1 "W"))(or (= card2 "s")(= card2 "S")))
+    (progn
+      (setq deg (rtos (- 270 (atof deg)) 2 0))
+      (if (< 0 (atof mins))(progn
+			     (setq mins (strcat (rtos (- 60 (atof mins)) 2 0) (chr 39)))
+			     (setq deg (rtos (- (atof deg) 1) 2 0))
+			     (if (< (atof deg) 0)(setq deg (rtos (+ (atof deg) 360) 2 0)))
+				)
+	     )
+	(if (< 0 (atof sec))
+	       (progn
+		 (setq sec (strcat (rtos (- 60 (atof sec)) 2 0) (chr 34)))
+		 (if (= 0 (atof mins)) (setq deg (rtos (- (atof deg) 1) 2 0)))
+		 (setq mins (strcat (rtos (- (atof mins) 1) 2 0) (chr 39)))
+	       
+		 (if (< (atof deg) 0)(setq deg (rtos (+ (atof deg) 360) 2 0)))
+		 (if (< (atof mins) 0)(setq mins (strcat (rtos (+ (atof mins) 60) 2 0)(chr 39))))
+		 )
+	  )
+      	           
+(if (or (and (< (atof mins) 10)(/= 0 (atof mins))) (= mins "0'")) (setq mins (strcat "0" mins)))
+(if (and (< (atof sec) 10)(/= 0 (atof sec))) (setq sec (strcat "0" sec)))
+		 
+      )
+    );WS
+
+		   
+		   (if (and (or (= card1 "e")(= card1 "E"))(or (= card2 "n")(= card2 "N")))
+    (progn
+      (setq deg (rtos (- 90 (atof deg)) 2 0))
+      (if (< 0 (atof mins))(progn
+			     (setq mins (strcat (rtos (- 60 (atof mins)) 2 0) (chr 39)))
+			     (setq deg (rtos (- (atof deg) 1) 2 0))
+			     (if (< (atof deg) 0)(setq deg (rtos (+ (atof deg) 360) 2 0)))
+				)
+	     )
+	(if (< 0 (atof sec))
+	       (progn
+		 (setq sec (strcat (rtos (- 60 (atof sec)) 2 0) (chr 34)))
+		 (if (= 0 (atof mins)) (setq deg (rtos (- (atof deg) 1) 2 0)))
+		 (setq mins (strcat (rtos (- (atof mins) 1) 2 0) (chr 39)))
+	       
+		 (if (< (atof deg) 0)(setq deg (rtos (+ (atof deg) 360) 2 0)))
+		 (if (< (atof mins) 0)(setq mins (strcat (rtos (+ (atof mins) 60) 2 0)(chr 39))))
+		 )
+	  )
+      	           
+(if (or (and (< (atof mins) 10)(/= 0 (atof mins))) (= mins "0'")) (setq mins (strcat "0" mins)))
+(if (and (< (atof sec) 10)(/= 0 (atof sec))) (setq sec (strcat "0" sec)))
+		 
+      )
+    );EN
+
+  (if (and (or (= card1 "s")(= card1 "S"))(or (= card2 "e")(= card2 "E")))
+    (progn
+      (setq deg (rtos (- 180 (atof deg)) 2 0))
+      (if (< 0 (atof mins))(progn
+			     (setq mins (strcat (rtos (- 60 (atof mins)) 2 0) (chr 39)))
+			     (setq deg (rtos (- (atof deg) 1) 2 0))
+			     (if (< (atof deg) 0)(setq deg (rtos (+ (atof deg) 360) 2 0)))
+				)
+	     )
+	(if (< 0 (atof sec))
+	       (progn
+		 (setq sec (strcat (rtos (- 60 (atof sec)) 2 0) (chr 34)))
+		 (if (= 0 (atof mins)) (setq deg (rtos (- (atof deg) 1) 2 0)))
+		 (setq mins (strcat (rtos (- (atof mins) 1) 2 0) (chr 39)))
+	       
+		 (if (< (atof deg) 0)(setq deg (rtos (+ (atof deg) 360) 2 0)))
+		 (if (< (atof mins) 0)(setq mins (strcat (rtos (+ (atof mins) 60) 2 0)(chr 39))))
+		 )
+	  )
+      	           
+(if (or (and (< (atof mins) 10)(/= 0 (atof mins))) (= mins "0'")) (setq mins (strcat "0" mins)))
+(if (and (< (atof sec) 10)(/= 0 (atof sec))) (setq sec (strcat "0" sec)))
+		 
+      )
+    );SE
+
+  (if (and (or (= card1 "s")(= card1 "S"))(or (= card2 "w")(= card2 "W")))
+    (progn
+      (setq deg (rtos (+ 180 (atof deg)) 2 0))
+      
+      )
+    );SW
+
+		    (if (and (or (= card1 "w")(= card1 "W"))(or (= card2 "n")(= card2 "N")))
+    (progn
+      (setq deg (rtos (+ 270 (atof deg)) 2 0))
+      
+      )
+    );WN
+		    (if (and (or (= card1 "e")(= card1 "E"))(or (= card2 "s")(= card2 "S")))
+    (progn
+      (setq deg (rtos (+ 90 (atof deg)) 2 0))
+      
+      )
+    );ES
+  
+		   
+
+  (setq lbearing (strcat deg "." (substr mins 1 2) (substr sec 1 2)))
+  (if (= rswitch "T")(setq lbearing (strcat "R" lbearing)))
+  
+
+
+  (setq bearing (strcat  deg "d" mins sec))
+    (setq linetext (strcat "@" "10" "<" bearing))
+    (command "line" p1 linetext "")
+  
+  (SETQ BENT (entget (entlast)))
+		      (setq p1 (cdr(assoc 10 bent)))
+		      (setq p2 (cdr(assoc 11 bent)))
+		       (SETQ ANG (ANGLE  P1  P2 ))
+  (command "erase" (entlast) "")
+  
+);p else no bearing entered
+		      );if no bearing entered
+
+  
+
+
+   (SETQ SENTLIST (ENTGET SENT))
+
+  (SETQ PTLIST (LIST))
+				
+;CREATE LIST OF POLYLINE POINTS
+    (SETQ PTLIST (LIST))
+	    (foreach a SENTLIST
+	      (if (= 10 (car a))
+
+		(setq PTLIST (append PTLIST (list (cdr a))))
+	      )				;IF
+	     
+	    )				;FOREACH 			)
+
+  
+
+
+   (setq sp (nth 0 ptlist))
+
+  (setq ptlist2 (list sp))
+
+  ;go through list and get chainages on bearing
+  (setq count 1)
+  (repeat (- (length ptlist) 1)
+    (setq p2 (nth count ptlist))
+    (setq intpt (inters sp (polar sp ang 100) p2 (polar p2 (+ ang (* pi 0.5)) 100) nil))
+    (setq ptlist2 (append ptlist2 (LIST intpt)))
+
+;LABEL OFFSET
+    (SETQ OFF (DISTANCE P2 INTPT))
+
+    (SETQ OCCPNT P2)
+    (SETQ P5 INTPT)
+
+
+      
+   
+
+      (IF (= STOPCOMMENT "Y")
+	(PROGN
+	  (SETQ ENTSS (SSADD))
+	  (COMMAND "XLINE" "A" "45" (trans P2 0 1) "")
+	  (SETQ XL (ENTLAST))
+	(SSADD XL ENTSS)
+	  (COMMAND "XLINE" "A" "135" (trans P2 0 1) "")
+	  (SETQ XL (ENTLAST))
+	  (SSADD XL ENTSS)
+	  (COMMAND "ZOOM" "C" (trans P2 0 1) "")
+	  (COMMAND "CHANGE" ENTSS "" "P" "C" "3" "")
+	  (SETQ COMMENT (GETSTRING T "Comment:" ))
+	  (COMMAND "ERASE" ENTSS "")
+	  
+	  )
+	(setq comment "")
+	)
+
+      (SETQ COMLIST (APPEND COMLIST (LIST COMMENT)))
+(if (/= (rtos off 2 3) "0") (XOVICO))
+
+
+    
+    (setq count (+ count 1))
+    );R
+	(setq ptlist ptlist2)
+(setvar "clayer" "Occupations")
+
+
+  
+
+  
+
+  (SETQ COUNT 0)
+  (setq optlist2 nil)
+  (REPEAT (LENGTH PTLIST2)
+    (SETQ optlist2 (append optlist2 (list (trans (nth count ptlist2) 0 1))))
+    (setq count (+ count 1))
+    )
+    
+  (command "_PLINE")
+     (mapcar 'command oPTLIST2)
+      (command NIL)
+  (setq sentlist (entget (entlast)))
+
+  ;get first segment
+   (setq sp (nth 0 ptlist))
+  (setq p2 (nth 1 ptlist))
+  (setq LLEN (distance sp p2))
+    (SETQ COMMENT (nth 0 comlist))
+
+  (setq chaindist LLEN)
+  
+;ROUND DISTANCES
+
+  (if (= qround "YES")
+    (progn
+    (IF (< LLEN DISTMAX1) (SETQ DROUND DRND1))
+    (IF (AND (> LLEN DISTMAX1)(< LLEN DISTMAX2)) (SETQ DROUND DRND2))
+    (IF (> LLEN DISTMAX2)(SETQ DROUND DRND3))
+			
+    (SETQ LIP (FIX (/ LLEN DROUND)))
+    (SETQ LFP (- (/ LLEN DROUND) LIP))
+    (IF (>= LFP 0.5 ) (SETQ LIP (+ LIP 1)))
+    (SETQ LLEN (* LIP DROUND))
+
+             (SETQ WMLIP (FIX (/ LLEN 1.0)))
+     (SETQ WMLFP (- (/ LLEN 1.0) WMLIP))
+        (SETVAR "DIMZIN" 0)
+	(IF (< DROUND 0.01)(SETQ LDIST (RTOS LLEN 2 3)));ROUND T0 3 DP FOR LESS THAN 10MM ROUNDING WITH TRAILING ZEROS
+	(IF (AND (>= DROUND 0.01)(< DROUND 0.1))(SETQ LDIST (RTOS LLEN 2 2)));ROUND TO 10MM WITH TRAILING ZEROS
+        (SETVAR "DIMZIN" 8)
+        (IF (>= DROUND 0.1)(SETQ LDIST (RTOS LLEN 2 3)));ROUND TO 0.1
+	(IF (= WMLFP 0)(SETQ LDIST (RTOS LLEN 2 3)));REMOVE TRAILING ZEROS ON WHOLE METERS
+    
+    )
+
+    (SETQ LDIST (RTOS LLEN 2 3))
+
+    )
+    
+  
+(setq chainlist  (strcat chainlist ","  LDIST))
+  
+    (SETQ CP1 (TRANS  sp 0 1))
+    (SETQ CP2 (TRANS  p2 0 1))
+    (SETQ ANG (- (ANGLE CP1 CP2) (* 0.5 pi)))
+    (SETQ DANG (* ANG (/ 180 PI)))
+
+    (IF (AND (> DANG 90) (<= DANG 270)) (PROGN
+					 (SETQ CP1 (TRANS P2 0 1))
+					 (SETQ CP2 (TRANS SP 0 1))
+					 (SETQ ANG (- (ANGLE CP1 CP2) (* 0.5 PI)))
+                                         (SETQ DANG (* ANG (/ 180 PI)))
+					 )
+      )
+
+   
+  
+   (SETVAR "CLAYER"  "Drafting AFR" )
+  (setq 00pos (polar sp (- (angle cp1 cp2) (* 0.5 pi)) (* 0.7 TH)))
+    (command "insert" "VCH0" "_S" TH (trans 00pos 0 1) (angtos (ANGLE (trans sp 0 1)(trans p2 0 1)) 1 4))
+  (setq Tp2 (polar p2 ang (* 0.6 th)))
+    (COMMAND "TEXT" "J" "ML" (trans TP2 0 1) TH  (ANGTOS ANG 1 4) (strcat ldist comment) )
+
+  ;continue for reamining segements
+  (SETQ COUNT 1)
+  (REPEAT (- (LENGTH PTLIST) 2)
+    (setq p1 (nth count ptlist))
+    (setq p2 (nth (+ count 1) ptlist))
+    (SETQ COMMENT (nth count comlist))
+    (setq dist (distance sp p2))
+    (setq chaindist  dist)
+    (SETQ LLEN CHAINDIST)
+
+   
+	  
+;ROUND DISTANCES
+
+    (if (= qround "YES")
+      (PROGN
+      
+    (IF (< LLEN DISTMAX1) (SETQ DROUND DRND1))
+    (IF (AND (> LLEN DISTMAX1)(< LLEN DISTMAX2)) (SETQ DROUND DRND2))
+    (IF (> LLEN DISTMAX2)(SETQ DROUND DRND3))
+			
+    (SETQ LIP (FIX (/ LLEN DROUND)))
+    (SETQ LFP (- (/ LLEN DROUND) LIP))
+    (IF (>= LFP 0.5 ) (SETQ LIP (+ LIP 1)))
+    (SETQ LLEN (* LIP DROUND))
+   (SETQ WMLIP (FIX (/ LLEN 1.0)))
+     (SETQ WMLFP (- (/ LLEN 1.0) WMLIP))
+        (SETVAR "DIMZIN" 0)
+	(IF (< DROUND 0.01)(SETQ LDIST (RTOS LLEN 2 3)));ROUND T0 3 DP FOR LESS THAN 10MM ROUNDING WITH TRAILING ZEROS
+	(IF (AND (>= DROUND 0.01)(< DROUND 0.1))(SETQ LDIST (RTOS LLEN 2 2)));ROUND TO 10MM WITH TRAILING ZEROS
+        (SETVAR "DIMZIN" 8)
+        (IF (>= DROUND 0.1)(SETQ LDIST (RTOS LLEN 2 3)));ROUND TO 0.1
+	(IF (= WMLFP 0)(SETQ LDIST (RTOS LLEN 2 3)));REMOVE TRAILING ZEROS ON WHOLE METERS
+      
+      )
+
+    (SETQ LDIST (RTOS LLEN 2 3))
+      )
+    
+    
+    ;(IF (< LLEN 1) (SETQ DTS (STRCAT "0" DTS)))
+    (setq tp2 (polar p2 ang (* 0.6 th)))
+    (COMMAND "TEXT" "J" "ML" (trans tP2 0 1) TH (ANGTOS ANG 1 4) (strcat ldist comment) )
+    (SETQ COUNT (+ COUNT 1))
+
+    (setq chainlist  (strcat chainlist ","  (rtos DIST 2 3)))
+    
+    );R
+
+
+
+
+   (SETQ ANG (ANGLE  SP  P2 ))
+
+  (SETQ BEARING (ANGTOS ANG 1 4));REQUIRED FOR ELSE ROUND
+  (setq bearing (vl-string-subst "d" (chr 176) bearing));added for BricsCAD changes degrees to "d"
+    
+
+  (IF (= QROUND "YES")(PROGN
+  
+ 
+
+    ;ASSIGN ROUNDING FOR ANGLES BASED ON DISTANCE
+    (IF (< CHAINDIST MAXLEN1) (SETQ ROUND BRND1))
+    (IF (AND (> CHAINDIST MAXLEN1)(< CHAINDIST MAXLEN2)) (SETQ ROUND BRND2))
+    (IF (> CHAINDIST MAXLEN2)(SETQ ROUND BRND3))			
+			
+    ;(IF (> LLEN 100) (SETQ ROUND 1))
+
+   
+    ;GET ANGLE DELIMIETERS
+    (SETQ SANG (ANGTOS ANG 1 4))
+    (setq sang (vl-string-subst "d" (chr 176) sang));added for BricsCAD changes degrees to "d"
+    (setq CHRDPOS (vl-string-position 100 SANG 0))
+    (setq MINPOS (vl-string-position 39 SANG 0))
+    (setq SECPOS (vl-string-position 34 SANG 0))
+
+    ;PARSE ANGLE
+    (setq DEG  (atof (substr SANG 1  CHRDPOS )))
+    (setq MINS  (atof (substr SANG (+ CHRDPOS 2)  (-(- MINPOS CHRDPOS)1))))
+    (setq SEC  (atof (substr SANG (+ MINPOS 2)  (-(- SECPOS MINPOS )1))))
+
+   
+;ROUND ANGLE, NOTE SECONDS REMOVED
+    (IF (and (= ROUND 60)(< SEC 30)) (SETQ SEC 0))
+    (IF (and (= ROUND 60)(>= SEC 30)) (SETQ SEC 0
+					    MINS (+ MINS 1)))					  
+    (IF (/= ROUND 60) (PROGN
+			(SETQ SIP (FIX (/ SEC ROUND)))
+			(SETQ SFP (- (/  SEC ROUND) SIP))
+			(IF (>= SFP 0.5) (SETQ SIP (+ SIP 1)))
+			(SETQ SEC (* SIP ROUND))
+			)
+      )
+
+    
+		 
+    
+;STRING ANGLES
+    (SETQ DEG (RTOS DEG 2 0))
+    (SETQ MINS (RTOS MINS 2 0))
+    (SETQ SEC (RTOS SEC 2 0))
+    
+;INCREMENT IF SECONDS ROUNDED TO 60
+    (IF (= SEC  "60")
+      (PROGN
+	(SETQ SEC "00")
+	(SETQ MINS (RTOS (+ (ATOF MINS ) 1) 2 0))
+	)
+      )
+;INCREMENT IF MINUTES ROUNDED TO 60
+    (IF (= MINS "60")
+      (PROGN
+	(SETQ MINS "00")
+	(SETQ DEG (RTOS (+ (ATOF DEG ) 1) 2 0))
+	)
+      )
+;FIX IF INCREMENTING PUSHES DEG PAST 360    
+    (IF (= DEG "360")(SETQ DEG "0"))
+;ADD ZEROS TO SINGLE NUMBERS	
+ (IF (= (STRLEN MINS) 1)(SETQ MINS (STRCAT "0" MINS)))
+  (IF (= (STRLEN SEC) 1)(SETQ SEC (STRCAT "0" SEC)))
+
+;TRUNCATE BEARINGS IF 00'S
+  (IF (AND (= MINS "00") (= SEC "00")) (SETQ MINSS ""
+					     MINS ""
+					     SECS ""
+					     SEC "")
+        (SETQ MINSS(STRCAT MINS "'")
+	  SECS (STRCAT SEC "\""))
+	  )
+    (IF (= SEC "00")(SETQ SECS ""
+			    SEC ""))
+
+			
+
+    ;CONCATENATE BEARING
+    (SETQ BEARING (STRCAT DEG "d" MINSS SECS ))
+
+			(IF (or (/= sec "")(/= MINS ""))(SETQ DEG (STRCAT DEG ".")))
+
+  (SETQ LBEARING (STRCAT DEG MINS SEC))
+
+			
+    
+
+			);P&IF
+
+
+(PROGN;ELSE
+
+  
+
+  (SETQ DPOS (vl-string-position 100 BEARING 0))
+  (setq Wpos (vl-string-position 39 BEARING 0))
+  (setq WWpos (vl-string-position 34 BEARING 0))
+
+    (setq DEG (substr BEARING 1 Dpos))
+      (setq MINS (substr BEARING (+ Dpos 2) (- (- WPOS DPOS) 1)))
+      (setq SEC (substr BEARING (+ Wpos 2) (- (- WWpos Wpos) 1)))
+
+  (IF (= (STRLEN MINS) 1)(SETQ MINS (STRCAT "0" MINS)))
+  (IF (= (STRLEN SEC) 1)(SETQ SEC (STRCAT "0" SEC)))
+  
+  (IF (AND (= MINS "00") (= SEC "00")) (SETQ MINSS ""
+					     SECS ""
+					     MINS ""
+					     SEC "")
+    (SETQ MINSS(STRCAT MINS "'")
+	  SECS (STRCAT SEC "\""))
+	  	  )
+  (IF (= SECS "00\"")(SETQ SECS ""
+			   SEC ""))
+  
+  (SETQ BEARING (STRCAT DEG "d" MINSS SECS ))
+
+  	(IF (or (/= sec "")(/= MINS ""))(SETQ DEG (STRCAT DEG ".")))
+
+  
+  ));PELSE&IF
+
+
+  
+    				
+ (SETQ CP1 (TRANS  sp 0 1))
+    (SETQ CP2 (TRANS  p2 0 1))
+    (SETQ ANG (ANGLE CP1 CP2))
+    (SETQ DANG (* ANG (/ 180 PI)))
+
+    (IF (AND (> DANG 90) (<= DANG 270)) (PROGN
+					 (SETQ CP1 (TRANS p2 0 1))
+					 (SETQ CP2 (TRANS sp 0 1))
+					 (SETQ ANG (ANGLE CP1 CP2))
+                                         (SETQ DANG (* ANG (/ 180 PI)))
+					 )
+      )
+ (SETQ MPE (/ (+ (CAR CP1 ) (CAR CP2)) 2))
+    (SETQ MPN (/ (+ (CADR CP1 ) (CADR CP2)) 2))
+    (SETQ MP (LIST MPE MPN))
+    (SETQ BPOS (POLAR MP (+ ANG (* 0.5 PI)) TH))
+    (SETQ DPOS (POLAR MP (- ANG (* 0.5 PI)) TH))
+    (SETQ BTS (vl-string-subst  " " "d" bearing))
+
+ 
+  
    (SETVAR "CLAYER"  "Drafting AFR" )
     (COMMAND "TEXT" "J" "MC" BPOS TH (ANGTOS ANG 1 4) BTS)
 
@@ -8873,13 +10017,16 @@
 				       
   
   (setq zone (getstring T "\nZone (54/55):" ))
+  (setq spce (getstring "\nParcel Centre East:"))
+  (setq spcn (getstring "\nParcel Centre North:"))
+  
   
   (if (= exttitles "")(setq exttitles " "))
   (if (= extaddress "")(setq extaddress " "))
   
   ;changed for BricsCAD
     (SETVAR "clayer" "Admin Sheet")
- (COMMAND "._INSERT" "ADMINSHEET" "_S" "1" tbinsertpoint "0" shname shlga shparish shfirm shref shts shcs shca shcp exttitles "" extaddress "" shlpr shdl shtype shpurpose2 shhop shsurveyor shregnumber shdos shjur shformat datum hdatum zone shlgacode shparishcode shpurpose1)
+ (COMMAND "._INSERT" "ADMINSHEET" "_S" "1" tbinsertpoint "0" shname shlga shparish shfirm shref shts shcs shca shcp exttitles "" extaddress "" shlpr shdl shtype shpurpose2 shhop shsurveyor shregnumber shdos shjur shformat datum hdatum zone shlgacode shparishcode shpurpose1 spce spcn zone)
    	  (setvar "clayer" prevlayer)
   );DEFUN
 
@@ -9282,8 +10429,8 @@
     (setq pos (nth count tickposlist))
     (setq rot (nth count tickrot))
 
-    (setq tp1 (Trans (polar pos rot (* 0.25 th)) 0 1))
-    (setq tp2 (trans (polar pos (+ rot pi)(* 0.25 th)) 0 1))
+    (setq tp1 (Trans (polar pos rot (* 0.5 th)) 0 1))
+    (setq tp2 (trans (polar pos (+ rot pi)(* 0.5 th)) 0 1))
     (command "line" tp1 tp2 "")
     
 
@@ -9387,7 +10534,15 @@
     (IF (>= LFP 0.5 ) (SETQ LIP (+ LIP 1)))
     (SETQ LLEN (* LIP DROUND))
 
-    (SETQ LDIST (RTOS LLEN 2 3))
+     (SETQ WMLIP (FIX (/ LLEN 1.0)))
+     (SETQ WMLFP (- (/ LLEN 1.0) WMLIP))
+        (SETVAR "DIMZIN" 0)
+	(IF (< DROUND 0.01)(SETQ LDIST (RTOS LLEN 2 3)));ROUND T0 3 DP FOR LESS THAN 10MM ROUNDING WITH TRAILING ZEROS
+	(IF (AND (>= DROUND 0.01)(< DROUND 0.1))(SETQ LDIST (RTOS LLEN 2 2)));ROUND TO 10MM WITH TRAILING ZEROS
+        (SETVAR "DIMZIN" 8)
+        (IF (>= DROUND 0.1)(SETQ LDIST (RTOS LLEN 2 3)));ROUND TO 0.1
+	(IF (= WMLFP 0)(SETQ LDIST (RTOS LLEN 2 3)));REMOVE TRAILING ZEROS ON WHOLE METERS
+	  
     
     ;(IF (< LLEN 1) (SETQ DTS (STRCAT "0" DTS)))
       
@@ -9548,6 +10703,7 @@
 (REPEAT (SSLENGTH LINES)
 (SETQ CP (CDR(ASSOC 10 (ENTGET (SSNAME LINES COUNT)))))
   (SETQ RADIUS (CDR(ASSOC 40 (ENTGET (SSNAME LINES COUNT)))))
+  (setq lradius  radius )
   (SETQ EN (CDR(ASSOC -1 (ENTGET (SSNAME LINES COUNT)))))
   (SETQ LAYER (CDR(ASSOC 8 (ENTGET (SSNAME LINES COUNT)))))
 
@@ -9618,8 +10774,14 @@
     (IF (>= LFP 0.5 ) (SETQ LIP (+ LIP 1)))
     (SETQ LLEN (* LIP DROUND))
     
-    (SETQ LDIST (RTOS LLEN 2 3))
-    ;(IF (< LLEN 1) (SETQ DTS (STRCAT "0" DTS)))
+ (SETQ WMLIP (FIX (/ LLEN 1.0)))
+     (SETQ WMLFP (- (/ LLEN 1.0) WMLIP))
+        (SETVAR "DIMZIN" 0)
+	(IF (< DROUND 0.01)(SETQ LDIST (RTOS LLEN 2 3)));ROUND T0 3 DP FOR LESS THAN 10MM ROUNDING WITH TRAILING ZEROS
+	(IF (AND (>= DROUND 0.01)(< DROUND 0.1))(SETQ LDIST (RTOS LLEN 2 2)));ROUND TO 10MM WITH TRAILING ZEROS
+        (SETVAR "DIMZIN" 8)
+        (IF (>= DROUND 0.1)(SETQ LDIST (RTOS LLEN 2 3)));ROUND TO 0.1
+	(IF (= WMLFP 0)(SETQ LDIST (RTOS LLEN 2 3)));REMOVE TRAILING ZEROS ON WHOLE METERS
       
    
 		 
@@ -9749,9 +10911,14 @@
     (IF (>= LFP 0.5 ) (SETQ LIP (+ LIP 1)))
     (SETQ LLEN (* LIP DROUND))
     
-    (SETQ arclength (RTOS LLEN 2 3))
-    ;(IF (< LLEN 1) (SETQ DTS (STRCAT "0" DTS)))
- 
+    (SETQ WMLIP (FIX (/ LLEN 1.0)))
+     (SETQ WMLFP (- (/ LLEN 1.0) WMLIP))
+        (SETVAR "DIMZIN" 0)
+	(IF (< DROUND 0.01)(SETQ arclength (RTOS LLEN 2 3)));ROUND T0 3 DP FOR LESS THAN 10MM ROUNDING WITH TRAILING ZEROS
+	(IF (AND (>= DROUND 0.01)(< DROUND 0.1))(SETQ arclength (RTOS LLEN 2 2)));ROUND TO 10MM WITH TRAILING ZEROS
+        (SETVAR "DIMZIN" 8)
+        (IF (>= DROUND 0.1)(SETQ arclength (RTOS LLEN 2 3)));ROUND TO 0.1
+	(IF (= WMLFP 0)(SETQ arclength (RTOS LLEN 2 3)));REMOVE TRAILING ZEROS ON WHOLE METERS
   			
 	(SETQ LLEN  radius)
 
@@ -9764,10 +10931,22 @@
     (IF (>= LFP 0.5 ) (SETQ LIP (+ LIP 1)))
     (SETQ LLEN (* LIP DROUND))
     
-    (SETQ radius llen)
+    (SETQ WMLIP (FIX (/ LLEN 1.0)))
+     (SETQ WMLFP (- (/ LLEN 1.0) WMLIP))
+        (SETVAR "DIMZIN" 0)
+	(IF (< DROUND 0.01)(SETQ radius (RTOS LLEN 2 3)));ROUND T0 3 DP FOR LESS THAN 10MM ROUNDING WITH TRAILING ZEROS
+	(IF (AND (>= DROUND 0.01)(< DROUND 0.1))(SETQ radius (RTOS LLEN 2 2)));ROUND TO 10MM WITH TRAILING ZEROS
+        (SETVAR "DIMZIN" 8)
+        (IF (>= DROUND 0.1)(SETQ radius (RTOS LLEN 2 3)));ROUND TO 0.1
+	(IF (= WMLFP 0)(SETQ radius (RTOS LLEN 2 3)));REMOVE TRAILING ZEROS ON WHOLE METERS
     ;(IF (< LLEN 1) (SETQ DTS (STRCAT "0" DTS)))
     
- ))
+ )
+    ;else if not rounding
+    (progn
+      (setq radius (rtos radius 2 3))
+      )
+    );if qround
   
 
 
@@ -9792,7 +10971,7 @@
 
   
       (if (/= comment "")(setq ocomment (strcat "><FieldNote>\"" comment "\"</FieldNote></ReducedArcObservation>"))(setq ocomment "/>"))
-(SETQ BDINFO (STRCAT "chordAzimuth=\"" Lbearing "\" length=\"" arclength "\" radius=\"" (RTOS RADIUS 2 3)  "\" rot=\"ccw\"" arctype ocomment))
+(SETQ BDINFO (STRCAT "chordAzimuth=\"" Lbearing "\" length=\"" arclength "\" radius=\"" RADIUS  "\" rot=\"ccw\"" arctype ocomment))
  
 (SETQ SENT (ENTLAST))
   (SETQ SENTLIST (ENTGET SENT))
@@ -9803,7 +10982,7 @@
       (setq tp1 p1)
       (setq tp2 p2)
    
-      (setq lradius (rtos radius 2 3))
+      
 (lbarc);label line if not already labelled;label arc using function
 
 
@@ -9910,14 +11089,14 @@
     (progn
      (setq area (rtos area1 2 3))
       (setq area1 (atof (rtos area1 2 3)));deal with recurring 9's
-      					    (if (> area1 0)(setq textarea (strcat (rtos (* (/ area1 0.1) 0.1) 2 1) "m²")))
-					    (if (> area1 100)(setq textarea (strcat (rtos (*  (/ area1 1) 1) 2 0) "m²")))
+      					    (if (> area1 0)(setq textarea (strcat (rtos (* (/ area1 0.1) 0.1) 2 1) "m ")))
+					    (if (> area1 100)(setq textarea (strcat (rtos (*  (/ area1 1) 1) 2 0) "m ")))
       					    (if (> area1 10000) (setq textarea (strcat (rtos (*  (/ (/ area1 10000) 0.001) 0.001) 2 3) "ha")))
 					    (if (> area1 100000) (setq textarea (strcat (rtos (*  (/ (/ area1 10000) 0.01) 0.01) 2 2) "ha")))
 					    (if (> area1 1000000) (setq textarea (strcat (rtos (*  (/ (/ area1 10000) 0.1) 0.1) 2 1) "ha")))
 					    (if (> area1 10000000) (setq textarea (strcat (rtos (*  (/ (/ area1 10000) 1) 1) 2 0) "ha")))
-                                            (if (> area1 100000000) (setq textarea (strcat (rtos (* (/ (/ area1 1000000) 0.1) 0.1) 2 1) "km²")))
-                                            (if (> area1 1000000000) (setq textarea (strcat (rtos (*  (/ (/ area1 1000000) 1) 1) 2 0) "km²")))
+                                            (if (> area1 100000000) (setq textarea (strcat (rtos (* (/ (/ area1 1000000) 0.1) 0.1) 2 1) "km ")))
+                                            (if (> area1 1000000000) (setq textarea (strcat (rtos (*  (/ (/ area1 1000000) 1) 1) 2 0) "km ")))
       
 					    
       )
@@ -9925,14 +11104,14 @@
      (setq areapercent (ABS(* (/  (- area1 (ATOF area)) area1) 100)))
      (if (> areapercent 10) (alert (strcat "\nArea different to calulated by " (rtos areapercent 2 0)"%")))
 
-      				            (if (< (atof area) 0)(setq textarea (strcat (rtos (*  (/ (atof area) 0.1) 0.1) 2 1) "m²")))
-					    (if (> (atof area) 100)(setq textarea (strcat (rtos (*  (/ (atof area) 1) 1) 2 0) "m²")))
+      				            (if (< (atof area) 0)(setq textarea (strcat (rtos (*  (/ (atof area) 0.1) 0.1) 2 1) "m ")))
+					    (if (> (atof area) 100)(setq textarea (strcat (rtos (*  (/ (atof area) 1) 1) 2 0) "m ")))
       					    (if (> (atof area) 10000) (setq textarea (strcat (rtos (*  (/ (/ (atof area) 10000) 0.001) 0.001) 2 3) "ha")))
 					    (if (> (atof area) 100000) (setq textarea (strcat (rtos (*  (/ (/ (atof area) 10000) 0.01) 0.01) 2 2) "ha")))
 					    (if (> (atof area) 1000000) (setq textarea (strcat (rtos (*  (/ (/ (atof area) 10000) 0.1) 0.1) 2 1) "ha")))
 					    (if (> (atof area) 10000000) (setq textarea (strcat (rtos (*  (/ (/ (atof area) 10000) 1) 1) 2 0) "ha")))
-                                            (if (> (atof area) 100000000) (setq textarea (strcat (rtos (*  (/ (/ (atof area) 1000000) 0.1) 0.1) 2 1) "km²")))
-                                            (if (> (atof area) 1000000000) (setq textarea (strcat (rtos (*  (/ (/ (atof area) 1000000) 1) 1) 2 0) "km²")))
+                                            (if (> (atof area) 100000000) (setq textarea (strcat (rtos (*  (/ (/ (atof area) 1000000) 0.1) 0.1) 2 1) "km ")))
+                                            (if (> (atof area) 1000000000) (setq textarea (strcat (rtos (*  (/ (/ (atof area) 1000000) 1) 1) 2 0) "km ")))
 
      )
     )
@@ -10356,14 +11535,14 @@
     (progn
      (setq area (rtos area1 2 3))
       (setq area1 (atof (rtos area1 2 3)));deal with recurring 9's
-      					    (if (> area1 0)(setq textarea (strcat (rtos (* (/ area1 0.1) 0.1) 2 1) "m²")))
-					    (if (> area1 100)(setq textarea (strcat (rtos (*  (/ area1 1) 1) 2 0) "m²")))
+      					    (if (> area1 0)(setq textarea (strcat (rtos (* (/ area1 0.1) 0.1) 2 1) "m ")))
+					    (if (> area1 100)(setq textarea (strcat (rtos (*  (/ area1 1) 1) 2 0) "m ")))
       					    (if (> area1 10000) (setq textarea (strcat (rtos (*  (/ (/ area1 10000) 0.001) 0.001) 2 3) "ha")))
 					    (if (> area1 100000) (setq textarea (strcat (rtos (*  (/ (/ area1 10000) 0.01) 0.01) 2 2) "ha")))
 					    (if (> area1 1000000) (setq textarea (strcat (rtos (*  (/ (/ area1 10000) 0.1) 0.1) 2 1) "ha")))
 					    (if (> area1 10000000) (setq textarea (strcat (rtos (*  (/ (/ area1 10000) 1) 1) 2 0) "ha")))
-                                            (if (> area1 100000000) (setq textarea (strcat (rtos (* (/ (/ area1 1000000) 0.1) 0.1) 2 1) "km²")))
-                                            (if (> area1 1000000000) (setq textarea (strcat (rtos (*  (/ (/ area1 1000000) 1) 1) 2 0) "km²")))
+                                            (if (> area1 100000000) (setq textarea (strcat (rtos (* (/ (/ area1 1000000) 0.1) 0.1) 2 1) "km ")))
+                                            (if (> area1 1000000000) (setq textarea (strcat (rtos (*  (/ (/ area1 1000000) 1) 1) 2 0) "km ")))
       
 					    
       )
@@ -10371,14 +11550,14 @@
      (setq areapercent (ABS(* (/  (- area1 (ATOF area)) area1) 100)))
      (if (> areapercent 10) (alert (strcat "\nArea different to calulated by " (rtos areapercent 2 0)"%")))
 
-      				            (if (< (atof area) 0)(setq textarea (strcat (rtos (*  (/ (atof area) 0.1) 0.1) 2 1) "m²")))
-					    (if (> (atof area) 100)(setq textarea (strcat (rtos (*  (/ (atof area) 1) 1) 2 0) "m²")))
+      				            (if (< (atof area) 0)(setq textarea (strcat (rtos (*  (/ (atof area) 0.1) 0.1) 2 1) "m ")))
+					    (if (> (atof area) 100)(setq textarea (strcat (rtos (*  (/ (atof area) 1) 1) 2 0) "m ")))
       					    (if (> (atof area) 10000) (setq textarea (strcat (rtos (*  (/ (/ (atof area) 10000) 0.001) 0.001) 2 3) "ha")))
 					    (if (> (atof area) 100000) (setq textarea (strcat (rtos (*  (/ (/ (atof area) 10000) 0.01) 0.01) 2 2) "ha")))
 					    (if (> (atof area) 1000000) (setq textarea (strcat (rtos (*  (/ (/ (atof area) 10000) 0.1) 0.1) 2 1) "ha")))
 					    (if (> (atof area) 10000000) (setq textarea (strcat (rtos (*  (/ (/ (atof area) 10000) 1) 1) 2 0) "ha")))
-                                            (if (> (atof area) 100000000) (setq textarea (strcat (rtos (*  (/ (/ (atof area) 1000000) 0.1) 0.1) 2 1) "km²")))
-                                            (if (> (atof area) 1000000000) (setq textarea (strcat (rtos (*  (/ (/ (atof area) 1000000) 1) 1) 2 0) "km²")))
+                                            (if (> (atof area) 100000000) (setq textarea (strcat (rtos (*  (/ (/ (atof area) 1000000) 0.1) 0.1) 2 1) "km ")))
+                                            (if (> (atof area) 1000000000) (setq textarea (strcat (rtos (*  (/ (/ (atof area) 1000000) 1) 1) 2 0) "km ")))
 
      )
     )
@@ -11075,7 +12254,7 @@
 
 
 
-    (if (/= (setq stringpos (vl-string-search "distanceAccClass" xdatai )) nil)(progn
+    (if (/= (setq stringpos (vl-string-search "distanceAccClass=" xdatai )) nil)(progn
 (setq wwpos (vl-string-position 34 xdatai (+ stringpos 18)))
 (setq stringpos1 (- stringpos 1)
        stringpos2 (+ wwpos 2) )
@@ -11139,7 +12318,7 @@
 
 
 
-    (if (/= (setq stringpos (vl-string-search "angleAccClass" xdatai )) nil)(progn
+    (if (/= (setq stringpos (vl-string-search "angleAccClass=" xdatai )) nil)(progn
 (setq wwpos (vl-string-position 34 xdatai (+ stringpos 15)))
 (setq stringpos1 (- stringpos 1)
        stringpos2 (+ wwpos 2) )
@@ -11784,10 +12963,26 @@
 					 )
       )
 
-  ;REDUCE SIZE ON SMALL LINES
-
+ 
   
-  (SETQ THP TH)
+
+  ;change to 3.5mm for traverse and lines with boundary in the name when working on afr
+  (setq prevlayer (getvar "CLAYER"))
+    (setq THP th)
+  (if (or (= prevlayer "Traverse")(and
+				    (or (/= nil (vl-string-search "Boundary" prevlayer  ))
+					(/= nil (vl-string-search "BOUNDARY" prevlayer  ))
+					(/= nil (vl-string-search "boundary" prevlayer  )))
+				    (= AFRBDY "Y")))
+    (PROGN
+      (SETVAR "CELWEIGHT" 35)
+      (SETQ TH (* TH 1.4))
+      ))
+  
+
+
+   ;REDUCE SIZE ON SMALL LINES
+  
   (IF (AND (/= ldist "")(< (ATOF LDIST) (* 10 th)) (<  (* (ATOF LDIST) 0.1) TH)(= ATHR "Y"))(SETQ TH (* (ATOF LDIST) 0.1)))
   
   
@@ -11796,7 +12991,7 @@
     (SETQ MP (LIST MPE MPN))
     (SETQ BPOS (POLAR MP (+ ANG (* 0.5 PI)) TH))
     (SETQ DPOS (POLAR MP (- ANG (* 0.5 PI)) TH))
-    (SETQ BTS (vl-string-subst  "°" "d" bearing))
+    (SETQ BTS (vl-string-subst  " " "d" bearing))
 
   (setq ulb "")
   (setq uld "")
@@ -11808,7 +13003,7 @@
   
   (if (/= comment "")(setq comment (strcat " "comment)))
 
-  (setq prevlayer (getvar "CLAYER"))
+  
   (if (or (= prevlayer "Traverse")(= prevlayer "Sideshot"))  (SETVAR "CLAYER"  "Drafting AFR" )(SETVAR "CLAYER"  "Drafting" ))
     (COMMAND "TEXT" "J" "MC" BPOS TH (ANGTOS ANG 1 4) (strcat ulb BTS))
     (if (/= ldist "") (COMMAND "TEXT" "J" "MC" DPOS TH (ANGTOS ANG 1 4) (strcat uld ldist (strcase comment))))
@@ -11833,8 +13028,17 @@
 (setq labelyeolddist 0)
 		    
 			    ));if yeolddist
-   (SETQ TH THP)
 
+  (if (and (= obsi "YES")(/= obsn nil))
+    (progn
+      (SETQ OBSPOS (POLAR MP (- ANG (* -0.5 PI)) (* 2.5 TH)))
+      (COMMAND "TEXT" "J" "MC" OBSPOS TH (ANGTOS ANG 1 4) OBSN )
+      (setq obsn nil)
+      ))
+
+  
+   (SETQ TH THP)
+  (SETVAR "CELWEIGHT" -1)
 
   
     )
@@ -11877,7 +13081,7 @@
     (SETQ MP (LIST MPE MPN))
     (SETQ BPOS (POLAR MP (+ ANG (* 0.5 PI)) (* TH 1.2)))
     (SETQ DPOS (POLAR MP (- ANG (* 0.5 PI)) (* TH 1.2)))
-    (SETQ BTS (vl-string-subst  "°" "d" bearing))
+    (SETQ BTS (vl-string-subst  " " "d" bearing))
 
   (if (/= comment "")(setq comment (strcat " "comment)))
 
@@ -11941,28 +13145,48 @@
 					 )
       )
 
+  (SETQ THP TH)
+  ;change to 3.5mm for traverse and lines with boundary in the name when working on afr
+  (setq prevlayer (getvar "CLAYER"))
+    (setq prevth th)
+  (if (or (= prevlayer "Traverse")(and (or (/= nil (vl-string-search "Boundary" prevlayer  ))(/= nil (vl-string-search "BOUNDARY" prevlayer  ))(/= nil (vl-string-search "boundary" prevlayer  )))(= AFRBDY "y")))
+    (PROGN
+      (SETVAR "CELWEIGHT" 35)
+      (SETQ TH (* TH 1.4))
+      ))
+
   ;REDUCE SIZE ON SMALL LINES
 
   
-  (SETQ THP TH)
+  
   (IF (AND (< (ATOF LDIST) (* 10 th)) (<  (* (ATOF LDIST) 0.1) TH)(= ATHR "Y"))(SETQ TH (* (ATOF LDIST) 0.1)))
   
   
     (SETQ MP (TRANS AMP 0 1))
     
 
-  (IF (or (AND (OR (>= AANG (* 1.5 PI))(<= AANG (* 0.5 PI)))( = curverot "ccw"))(AND (<= AANG (* 1.5 PI))(> AANG (* 0.5 PI))( = curverot "cw")))
+  (IF (or (AND (OR (>= AANG (* 1.5 PI))(<= AANG (* 0.5 PI)))( = curverot "ccw"))(AND (<= AANG (* 1.5 PI))(> AANG (* 0.5 PI))( = curverot "cw")));if anticlockwise and 
     (progn
-      (setq MP (POLAR MP (+ ANG (* 0.5 PI)) (* TH 6.7)))
+      ;(setq MP (POLAR MP (+ ANG (* 0.5 PI)) (* TH 5.3)))
+      (SETQ BPOS (POLAR MP (- ANG (* -0.5 PI)) (* 3.9 TH)))
+    (SETQ DPOS (POLAR MP (- ANG (* -0.5 PI))  (* 2.5 TH)))
+    (SETQ APOS (POLAR MP (- ANG (* -0.5 PI))  TH))
+    (SETQ RPOS (POLAR MP (- ANG (* 0.5 PI))  TH))
+      )
+
+    (progn
+    (SETQ RPOS (POLAR MP (- ANG (* -0.5 PI)) TH))
+    (SETQ APOS (POLAR MP (- ANG (* 0.5 PI))  TH))
+    (SETQ DPOS (POLAR MP (- ANG (* 0.5 PI)) (* 2.5 TH)))
+    (SETQ BPOS (POLAR MP (- ANG (* 0.5 PI)) (* 3.9 TH)))
       )
     
     )
-    (SETQ BPOS (POLAR MP (- ANG (* 0.5 PI))  TH))
-    (SETQ DPOS (POLAR MP (- ANG (* 0.5 PI)) (* 2.5 TH)))
-    (SETQ APOS (POLAR MP (- ANG (* 0.5 PI)) (* 3.9 TH)))
-    (SETQ RPOS (POLAR MP (- ANG (* 0.5 PI)) (* 5.3 TH)))
+
+  
+    
  
-    (SETQ BTS (vl-string-subst  "°" "d" bearing))
+    (SETQ BTS (vl-string-subst  " " "d" bearing))
   
    (setq ul "")
   (if (and (= arctype " arcType=\"Adopt Dimension\" ")(= comment ""))(setq comment  "AD"))
@@ -11975,22 +13199,28 @@
   (if (or (= prevlayer "Traverse")(= prevlayer "Sideshot"))  (SETVAR "CLAYER"  "Drafting AFR" )(SETVAR "CLAYER"  "Drafting" ))
   (SETVAR "CLAYER" "Drafting")
     (COMMAND "TEXT" "J" "MC" BPOS TH (ANGTOS ANG 1 4) (STRCAT UL BTS))
-    (COMMAND "TEXT" "J" "MC" DPOS TH (ANGTOS ANG 1 4) (strcat UL "CH" ldist (strcase comment)))
-    (COMMAND "TEXT" "J" "MC" APOS TH (ANGTOS ANG 1 4) (strcat UL "ARC" arclength))
-    (COMMAND "TEXT" "J" "MC" RPOS TH (ANGTOS ANG 1 4) (strcat UL "RAD" lradius))
+    (COMMAND "TEXT" "J" "MC" DPOS TH (ANGTOS ANG 1 4) (strcat UL "C" ldist (strcase comment)))
+    (COMMAND "TEXT" "J" "MC" APOS TH (ANGTOS ANG 1 4) (strcat UL "A" arclength))
+    (COMMAND "TEXT" "J" "MC" RPOS TH (ANGTOS ANG 1 4) (strcat UL "R" radius))
 
   (if (= prevlayer "Boundary Extinguished")(progn
 					     (SETVAR "CLAYER" "Drafting AFR")
     (COMMAND "TEXT" "J" "MC" BPOS TH (ANGTOS ANG 1 4) (STRCAT UL BTS))
-    (COMMAND "TEXT" "J" "MC" DPOS TH (ANGTOS ANG 1 4) (strcat UL "CH" ldist (strcase comment)))
-    (COMMAND "TEXT" "J" "MC" APOS TH (ANGTOS ANG 1 4) (strcat UL "ARC" arclength))
-    (COMMAND "TEXT" "J" "MC" RPOS TH (ANGTOS ANG 1 4) (strcat UL "RAD" lradius))
+    (COMMAND "TEXT" "J" "MC" DPOS TH (ANGTOS ANG 1 4) (strcat UL "C" ldist (strcase comment)))
+    (COMMAND "TEXT" "J" "MC" APOS TH (ANGTOS ANG 1 4) (strcat UL "A" arclength))
+    (COMMAND "TEXT" "J" "MC" RPOS TH (ANGTOS ANG 1 4) (strcat UL "R" radius))
 					     ))
+
+   (if (and (= obsi "YES")(/= obsn nil))
+    (progn
+      (SETQ OBSPOS (POLAR MP (- ANG (* -0.5 PI)) (* 2.5 TH)))
+      (COMMAND "TEXT" "J" "MC" OBSPOS TH (ANGTOS ANG 1 4) OBSN )
+      (setq obsn nil)
+      ))
 
 
 	 (SETQ TH THP)
-
-
+(SETVAR "CELWEIGHT" -1)
 
 
 
@@ -12040,7 +13270,7 @@
     (SETQ APOS (POLAR MP (- ANG (* 0.5 PI)) (* 3.9 TH)))
     (SETQ RPOS (POLAR MP (- ANG (* 0.5 PI)) (* 5.3 TH)))
  
-    (SETQ BTS (vl-string-subst  "°" "d" bearing))
+    (SETQ BTS (vl-string-subst  " " "d" bearing))
   
   (setq prevlayer (getvar "CLAYER"))
   (SETVAR "CLAYER"  "Drafting" )
@@ -12153,34 +13383,45 @@
   (IF (/= rmrefdp "")(COMMAND "TEXT" "J" just 2POS TH (ANGTOS rANG 1 4) rmrefdp))
 
   
-(IF (= rmtype "SSM (Standard Survey Mark)")(command "insert" "VRM" "_S" TH P1 "0"))
-(IF (= rmtype "Drill Hole with Wings")(command "insert" "VDHW" "_S" TH P1 "0"))
-(IF (= rmtype "Chisel Cut")(command "insert" "VETCH" "_S" TH P1 "0"))
-(IF (= rmtype "Peg")(command "insert" "VPEG" "_S" TH P1  "0"))
-(IF (= rmtype "Peg and Trench")(command "insert" "VPEG" "_S" TH P1 "0"))
 (IF (= rmtype "Bolt")(command "insert" "VRM" "_S" TH P1 "0"))
+(IF (= rmtype "Chisel Cut")(command "insert" "VETCH" "_S" TH P1 "0"))
 (IF (= rmtype "Cross Head Nail")(command "insert" "VRM" "_S" TH P1 "0"))
 (IF (= rmtype "Deep Driven Rod")(command "insert" "VRM" "_S" TH P1 "0"))
 (IF (= rmtype "Drill Hole")(command "insert" "VRM" "_S" TH P1 "0"))
+(IF (= rmtype "Drill Hole with Wings")(command "insert" "VDHW" "_S" TH P1 "0"))
 (IF (= rmtype "Dumpy")(command "insert" "VRM" "_S" TH P1 "0"))
 (IF (= rmtype "G.I. Nail")(command "insert" "VRM" "_S" TH P1 "0"))
-(IF (= rmtype "Nail in Peg")(command "insert" "VRM" "_S" TH P1 "0"))
-(IF (= rmtype "Nail in Rail")(command "insert" "VRM" "_S" TH P1 "0"))
-(IF (= rmtype "Pin")(command "insert" "VRM" "_S" TH P1 "0"))
 (IF (= rmtype "G.I. Pipe")(command "insert" "VRM" "_S" TH P1 "0"))
+(IF (= rmtype "Nail in Join")(command "insert" "VRM" "_S" TH P1 "0"))
+(IF (= rmtype "Nail in Peg")(command "insert" "VRM" "_S" TH P1 "0"))
+(IF (= rmtype "Nail in Post")(command "insert" "VRM" "_S" TH P1 "0"))
+(IF (= rmtype "Nail in Rail")(command "insert" "VRM" "_S" TH P1 "0"))
+(IF (= rmtype "Other")(command "insert" "VRM" "_S" TH P1 "0"))
+(IF (= rmtype "Peg")(command "insert" "VPEG" "_S" TH P1 "0"))
+(IF (= rmtype "Peg and Trench")(command "insert" "VPEG" "_S" TH P1 "0"))
+(IF (= rmtype "Pin")(command "insert" "VRM" "_S" TH P1 "0"))
+(IF (= rmtype "Pipe")(command "insert" "VRM" "_S" TH P1 "0"))
+(IF (= rmtype "Reference Tree")(command "insert" "VRM" "_S" TH P1 "0"))
 (IF (= rmtype "Rivet")(command "insert" "VRM" "_S" TH P1 "0"))
 (IF (= rmtype "Rod")(command "insert" "VRM" "_S" TH P1 "0"))
-(IF (= rmtype "Reference Tree")(command "insert" "VRM" "_S" TH P1 "0"))
+(IF (= rmtype "Round Post")(command "insert" "VRPOST" "_S" TH P1 "0"))
+(IF (= rmtype "SSM (Standard Survey Mark)")(command "insert" "VRM" "_S" TH P1 "0"))
 (IF (= rmtype "Screw")(command "insert" "VRM" "_S" TH P1 "0"))
 (IF (= rmtype "Spike")(command "insert" "VRM" "_S" TH P1 "0"))
-(IF (= rmtype "Survey Nail")(command "insert" "VRM" "_S" TH P1 "0"))
-(IF (= rmtype "Other")(command "insert" "VRM" "_S" TH P1 "0"))
-(IF (= rmtype "Nail in Join")(command "insert" "VRM" "_S" TH P1 "0"))
-(IF (= rmtype "Tree")(command "insert" "VRM" "_S" TH P1 "0"))
-(IF (= rmtype "Round Post")(command "insert" "VRPOST" "_S" TH P1 "0"))
+(IF (= rmtype "Split Post")(command "insert" "VSPPOST" "_S" TH P1 "0"))
 (IF (= rmtype "Square Post")(command "insert" "VSPOST" "_S" TH P1 "0"))
-(IF (= rmtype "Split Post")(command "insert" "VSPOST" "_S" TH P1 "0"))
 (IF (= rmtype "Star Picket")(command "insert" "VSTPK" "_S" TH P1 "0"))
+(IF (= rmtype "Survey Nail")(command "insert" "VRM" "_S" TH P1 "0"))
+(IF (= rmtype "Tree")(command "insert" "VRM" "_S" TH P1 "0"))
+(IF (= rmtype "Fence")(command "insert" "VRM" "_S" TH P1 "0"))
+(IF (= rmtype "Fence (Intersection)")(command "insert" "VRM" "_S" TH P1 "0"))
+(IF (= rmtype "Post (Round Timber)")(command "insert" "VRTPOST" "_S" TH P1 "0"))
+(IF (= rmtype "Post (Square Timber)")(command "insert" "VSTPOST" "_S" TH P1 "0"))
+(IF (= rmtype "Post (Split)")(command "insert" "VSPPOST" "_S" TH P1 "0"))
+(IF (= rmtype "Post (Square Steel)")(command "insert" "VSPOST" "_S" TH P1 "0"))
+(IF (= rmtype "Post (Gate)")(command "insert" "VRPOST" "_S" TH P1 "0"))
+(IF (= rmtype "Post (Other)")(command "insert" "VRPOST" "_S" TH P1 "0"))
+(IF (= rmtype "Steel Dropper")(command "insert" "VSTPK" "_S" TH P1 "0"))
 
 
 
@@ -12408,7 +13649,7 @@
 
    (setq cdalf "YXWVUTSRQPNMLKJHGFEDCBA")
 
-  (setq textstring (getstring "\nPlan Number:"))
+  
 
 (setq ref "")
   (setq cchkdigit "")
@@ -12535,35 +13776,36 @@
   (setq afrlist (list))
   (setq count 0)
   ;check for AFR files (do this third)
-
-  (setq afrcount 1)
-  (repeat 100
+  ;look based on modified name with leading 00 and check digits
+  (setq afrcount 1) 
+  (repeat 50
   (IF  (FINDFILE (strcat autoloadff afrpath "\\" filename "_AFR" (rtos afrcount 2 0)".xml"))
     (setq afrlist (append afrlist (list(strcat  filename "_AFR" (rtos afrcount 2 0)".xml"))))
     )
     (setq afrcount (+ afrcount 1))
-  );end repeat 100 looks for afr
+)
+    ;look based on original name for single letter plans etc that dont follow the leading 0 format
+    (setq afrcount 1)
+      (repeat 50
+  (IF  (and (= (vl-position (strcat textstring "_AFR" (rtos afrcount 2 0)".xml") afrlist) nil)(FINDFILE (strcat autoloadff afrpath "\\" textstring "_AFR" (rtos afrcount 2 0)".xml")))
+    (setq afrlist (append afrlist (list(strcat  textstring "_AFR" (rtos afrcount 2 0)".xml"))))
+    )
+    (setq afrcount (+ afrcount 1))
+	)
+	
+  ;end repeat 100 looks for afr
 
   ));if ff not nil
     
 
-  (if (and (/= ff nil)(> (length afrlist) 0))
-        (progn
-      (setq afralert "")
-      (setq count 0)
-      (repeat (length afrlist)
-	(setq afralert (strcat afralert "\n" (nth count afrlist)))
-	(setq count (+ count 1))
-	);r
-    (alert (strcat "Plan has AFR files" afralert))
-      ));p&if afr plans
+
 
 
   
 
  
 
-(if (= ff nil)(exit))
+
 
 
   )
@@ -12576,7 +13818,7 @@
 
 
 
-(DEFUN C:XBLIN (/)
+(DEFUN C:XBLINO (/)
 
   (setq txtfilen (getfiled "Select txt of file and locations" "" "txt" 2))
   (setq txtfile (open txtfilen "r"))
@@ -12604,7 +13846,161 @@
 
 );DEFUN
 
+
+
+;--------------------------------------------------------------BULK IMPORT XMLS FILE BY XIN --------------------------
+
+
+
+(DEFUN C:XBLIN (/)
+
+  (setvar "DRAWORDERCTL" 0)
+
+  (SETQ FOUNDFILES (LIST))
+
+  (setq txtfilen (getfiled "Select txt of file and locations" "" "txt" 2))
+  (setq txtfile (open txtfilen "r"))
+  (SETQ planCOUNT 1)
+
+  (setvar "CECOLOR" "1")
+  (SETQ COLOUR 1)
+
+  (while (/=(setq textstring (read-line txtfile)) nil)
+    (progn
+
+      (findmyfile)
+
+      (IF (AND (/= FF NIL)(/= (VL-POSITION FF FOUNDFILES ) NIL))(princ (strcat "\n" textstring " exists twice in Xblin list")))
+      (IF (AND (/= FF  NIL) (= (VL-POSITION FF FOUNDFILES) NIL))
+	(PROGN
+
+	  (SETQ FOUNDFILES (APPEND FOUNDFILES (LIST FF)))
+	  
+
+      (COMMAND "XINB" )
+
+     (setq lastobj (ssget "_x" '((62 . 1))))
+	    (command "group" "Create" shname "" lastobj "" )
+	    (SETQ COLOUR (+ COLOUR 1))
+	    (IF (> COLOUR 249) (SETQ COLOUR 2))
+		  
+	    (command "change" lastobj "" "p" "c"  COLOUR "")	    
+      
+      ))
+
+      
+    
+
+
+
+      ));while not EOF
+
+);DEFUN
+
+
+
+
+
+;--------------------------------------------------------------BULK IMPORT XMLS FILE FOR SD ASSIGMENT AND EXPORTING TO DYNANET--------------------------
+
+
+
+(DEFUN C:XFRP (/)
+
+  (setq afrpath nil)
+  (setq txtfilen (getfiled "Select txt of files" "" "txt" 2))
+  (setq txtfile (open txtfilen "r"))
+    (setq Ftxtfilen (getfiled "Select txt of file and locations" "" "txt" 1))
+  (setq Ftxtfile (open ftxtfilen "W"))
+  (SETQ planCOUNT 1)
+
+  (while (/=(setq ff (read-line txtfile)) nil)
+    (progn
+
+      
+      (setq count 0)
+  ;just look for the plan as entered (do this first)
+      (setq FFF nil)
+  (repeat (length autoloadlist)
+      
+	(IF (= FFF NIL )
+	  (progn
+      (SETQ FFF (FINDFILE (strcat autoloadff (nth count autoloadlist) "\\"FF ".xml")))
+    (if (/= FFF NIL)(SETQ afrpath (nth count autoloadlist)))
+      ));if not found
+    
+  (setq count (+ count 1))
+  );r
+
+      (WRITE-LINE (STRCAT FF "," afrpath) ftxtfile)
+
+
+      ));while not EOF
+
+);DEFUN
+
+
+
+
+;-----------------------------------------------------------REJIG SPEAR SAVEAS TO LIST OF NUMBERS
+
+(DEFUN C:XCHTML (/)
+
+  			   (setq xmlfilen (getfiled "Select XML file" folderloc "html" 2))
+			   (setq folderloc (substr xmlfilen 1 (+ (vl-string-position 92 xmlfilen 1 T) 1)))
   
+ 
+      (setq outfilen (vl-string-subst "_WLF." "." xmlfilen))
+  (setq outfile (open outfilen "w"))
+
+       
+(close xmlfile)
+(setq xmlfile (open xmlfilen "r"))
+
+      (setq linetext (read-line xmlfile))    
+      (while (/= nil linetext)
+       (progn
+
+;add linefeed a every <
+	 (if (/= linetext "")
+	   (progn
+						 (setq <pos 1)
+	      (while (/=  (setq <pos (vl-string-search "<" linetext <pos )) nil) (setq linetext (vl-string-subst (strcat (chr 10) "<") "<"   linetext <pos)
+										      <pos (+ <pos 2)))
+							(write-line linetext outfile)
+	   ))
+      (setq linetext (read-line xmlfile))
+	 
+	 ))
+
+  (close outfile)
+  (close xmlfile)
+
+  ;reread file and extract names
+(setq outfile (open outfilen "r"))
+
+  (setq listfilen (vl-string-subst "_LIST.TXT" ".HTML" xmlfilen))
+  (setq listfile (open LISTfilen "w"))
+
+   (setq linetext (read-line outfile))    
+      (while (/= nil linetext)
+       (progn
+
+;add linefeed a every <
+	 (if (/= linetext "")
+	   (progn
+	     						 (if (= (substr linetext 1 124 )"<div role=\"presentation\" cellclipdiv=\"true\" style=\"overflow:hidden;;white-space:nowrap;text-overflow:ellipsis;WIDTH:108px;\">")
+						   (progn
+						        (write-line (substr linetext 125) listfile)
+	   ))
+	     ))
+      (setq linetext (read-line outfile))
+	 
+	 ))
+  
+  (close outfile)
+  (close listfile)
+  )
 
        
 
@@ -12628,10 +14024,23 @@
   )
 
 (vlax-remove-cmd "XINOB")
-(vlax-add-cmd "XINOB" "XINOB" "XINOB")
+(vlax-remove-cmd "XINB")
+(vlax-add-cmd "XINOB" "XINOB" "XINOB" )
+(vlax-add-cmd "XINB" "XINB" "XINB" )
 
 (DEFUN XINOB (/)
 (setq importcgpoint "fromobs")
+  (setq startpointreq "N")
+  (SETQ startpoint (LIST 1000 5000))
+  (SETQ afrstartpoint (LIST 1000 5000))
+  (setq simplestop "0")
+  (setq filescript "2")
+  (xmlimporter)
+    )
+
+
+(DEFUN XINB (/)
+(setq importcgpoint "fromfile")
   (setq startpointreq "N")
   (SETQ startpoint (LIST 1000 5000))
   (SETQ afrstartpoint (LIST 1000 5000))
@@ -12646,12 +14055,27 @@
   (setq startpointreq "Y")
   (setq simplestop "0")
   (setq filescript "2")
+  (setq textstring (getstring "\nPlan Number:"))
   (findmyfile)
+  
+    (if (and (/= ff nil)(> (length afrlist) 0))
+        (progn
+      (setq afralert "")
+      (setq count 0)
+      (repeat (length afrlist)
+	(setq afralert (strcat afralert "\n" (nth count afrlist)))
+	(setq count (+ count 1))
+	);r
+    (alert (strcat "Plan has AFR files" afralert))
+      ));p&if afr plans
+  (if (= ff nil)(exit))
   (xmlimporter)
+
+   
 
   (if (> (length afrlist) 0)
     (progn
-      (setq startpointreq "N")
+      (setq startpointreq "A")
       (setq afrcount 0)
   (repeat (length afrlist)
     (setq ff (strcat autoloadff afrpath "\\" (nth afrcount afrlist)))
@@ -12670,8 +14094,25 @@
   (setq startpointreq "N")
   (setq simplestop "0")
   (setq filescript "2")
+  (setq textstring (getstring "\nPlan Number:"))
   (findmyfile)
+
+    (if (and (/= ff nil)(> (length afrlist) 0))
+        (progn
+      (setq afralert "")
+      (setq count 0)
+      (repeat (length afrlist)
+	(setq afralert (strcat afralert "\n" (nth count afrlist)))
+	(setq count (+ count 1))
+	);r
+    (alert (strcat "Plan has AFR files" afralert))
+      ));p&if afr plans
+
+  
+  (if (= ff nil)(exit))
   (xmlimporter)
+
+  
 
   (if (> (length afrlist) 0)
     (progn
@@ -12732,8 +14173,10 @@
   (if (= startpointreq "Y")(progn
 			     (setq startpoint (getpoint "Select a starting point:"))
 			     (setq afrstartpoint startpoint)
-			     )
-    (setq afrstartpoint (list 1000 5000)))
+			     ))
+  (if (= startpointreq "N")(progn
+			     (setq afrstartpoint (list 1000 5000))
+    ))
   
 
    (setq xmlfile (open xmlfilen "r"))
@@ -12812,7 +14255,7 @@
       
   
  
-  (if (/= (setq stringpos (vl-string-search "name" linetext )) nil)(progn
+  (if (/= (setq stringpos (vl-string-search "name=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 6)))
 (setq planname (substr linetext (+ stringpos 7) (-(- wwpos 2)(+ stringpos 5))))
 ))
@@ -12829,13 +14272,13 @@
   (while (= (vl-string-search "<CoordinateSystem" linetext) nil)( progn
    (linereader)
 ))
-  (if (/= (setq stringpos (vl-string-search "datum" linetext )) nil)(progn
+  (if (/= (setq stringpos (vl-string-search "datum=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 7)))(setq datum (substr linetext (+ stringpos 8) (-(- wwpos 1)(+ stringpos 6)))))(setq datum ""))
-   (if (/= (setq stringpos (vl-string-search "desc" linetext )) nil)(progn
+   (if (/= (setq stringpos (vl-string-search "desc=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 6)))(setq datum (strcat datum "~" (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))))
-    (if (/= (setq stringpos (vl-string-search "horizontalDatum" linetext )) nil)(progn
+    (if (/= (setq stringpos (vl-string-search "horizontalDatum=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 17)))(setq hdatum (substr linetext (+ stringpos 18) (-(- wwpos 1)(+ stringpos 16)))))(setq hdatum ""))
-  (if (/= (setq stringpos (vl-string-search "verticalDatum" linetext )) nil)(progn
+  (if (/= (setq stringpos (vl-string-search "verticalDatum=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 15)))(setq vdatum (substr linetext (+ stringpos 16) (-(- wwpos 1)(+ stringpos 14)))))(setq vdatum ""))
   
   (princ "\nReading Monuments")
@@ -12855,19 +14298,19 @@
      (while (= (vl-string-search "</Monuments>" linetext ) nil) ( progn
    (if (/= linetext "" )
      (progn
-       (if (/= (setq stringpos (vl-string-search "name" linetext )) nil)(progn
+       (if (/= (setq stringpos (vl-string-search "name=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 6)))(setq monname (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))(setq monname nil))
-       (if (/= (setq stringpos (vl-string-search "pntRef" linetext )) nil)(progn
+       (if (/= (setq stringpos (vl-string-search "pntRef=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 8)))(setq moncgp (substr linetext (+ stringpos 9) (-(- wwpos 1)(+ stringpos 7)))))(setq moncgp nil))
-       (if (/= (setq stringpos (vl-string-search "type" linetext )) nil)(progn
+       (if (/= (setq stringpos (vl-string-search "type=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 6)))(setq montype (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))(setq montype nil))
-       (if (/= (setq stringpos (vl-string-search "desc" linetext )) nil)(progn
+       (if (/= (setq stringpos (vl-string-search "desc=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 6)))(setq mondesc (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))(setq mondesc nil))
-       (if (/= (setq stringpos (vl-string-search "state" linetext )) nil)(progn
+       (if (/= (setq stringpos (vl-string-search "state=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 7)))(setq monstate (substr linetext (+ stringpos 8) (-(- wwpos 1)(+ stringpos 6)))))(setq monstate nil))
-       (if (/= (setq stringpos (vl-string-search "originSurvey" linetext )) nil)(progn
+       (if (/= (setq stringpos (vl-string-search "originSurvey=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 14)))(setq monrefdp (substr linetext (+ stringpos 15) (-(- wwpos 1)(+ stringpos 13)))))(setq monrefdp nil))
-       (if (/= (setq stringpos (vl-string-search "condition" linetext )) nil)(progn
+       (if (/= (setq stringpos (vl-string-search "condition=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 11)))(setq moncond (substr linetext (+ stringpos 12) (-(- wwpos 1)(+ stringpos 9)))))(setq moncond nil))
 
        ;deal with a state of gone
@@ -12910,10 +14353,10 @@
  (linereader)
 (while (= (vl-string-search "</Survey>" linetext ) nil)( progn
 								 (if (vl-string-search "<InstrumentSetup" linetext )(progn
-		   (if (/= (setq stringpos (vl-string-search "id" linetext )) nil)(progn
+		   (if (/= (setq stringpos (vl-string-search "id=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 4)))(setq isid (substr linetext (+ stringpos 5) (-(- wwpos 1)(+ stringpos 3)))))(setq isid nil))
 		   (linereader)
-		   (if (/= (setq stringpos (vl-string-search "pntRef" linetext )) nil)(progn
+		   (if (/= (setq stringpos (vl-string-search "pntRef=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 8)))(setq iscgp (substr linetext (+ stringpos 9) (-(- wwpos 1)(+ stringpos 7)))))(setq iscgp nil))
 		   (setq isid (strcat "IS-" isid));add "is-" to isid just in case someone is stupid enough to use the same id
 		   (setq islist (append islist (list isid)(list iscgp)))
@@ -12944,7 +14387,7 @@
 
 
   ;get zone if present
-  (if (/= (setq stringpos (vl-string-search "zoneNumber" linetext )) nil)(progn
+  (if (/= (setq stringpos (vl-string-search "zoneNumber=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 12)))(setq zone (substr linetext (+ stringpos 13) (-(- wwpos 1)(+ stringpos 11)))))(setq zone ""))
   
  (linereader)
@@ -12955,15 +14398,15 @@
     (if (/= (vl-string-search "<CgPoint" linetext )nil)
      (progn
        ;store line information
-       (if (/= (setq stringpos (vl-string-search "state" linetext )) nil)(progn
+       (if (/= (setq stringpos (vl-string-search "state=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 7)))(setq cgpstate (substr linetext (+ stringpos 8) (-(- wwpos 1)(+ stringpos 6)))))(setq cgpstate nil))
-              (if (/= (setq stringpos (vl-string-search "pntSurv" linetext )) nil)(progn
+              (if (/= (setq stringpos (vl-string-search "pntSurv=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 9)))(setq cgpntsurv (substr linetext (+ stringpos 10) (-(- wwpos 1)(+ stringpos 8)))))(setq cgpntsurv nil))
-              (if (/= (setq stringpos (vl-string-search "name" linetext )) nil)(progn
+              (if (/= (setq stringpos (vl-string-search "name=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 6)))(setq cgpname (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))(setq cgpname nil))
-                     (if (/= (setq stringpos (vl-string-search "oID" linetext )) nil)(progn
+                     (if (/= (setq stringpos (vl-string-search "oID=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 5)))(setq cgpoID (substr linetext (+ stringpos 6) (-(- wwpos 1)(+ stringpos 4)))))(setq cgpoID nil))
-                            (if (/= (setq stringpos (vl-string-search "desc" linetext )) nil)(progn
+                            (if (/= (setq stringpos (vl-string-search "desc=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 6)))(setq cgdesc (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))(setq cgdesc nil))
        
 
@@ -12999,7 +14442,7 @@
   (setq height "0"));else
 (setq east (atof east))
 ;if in lats and longs convert to easting northing
-(if (vl-string-search "latitude=" linetext )(progn
+(if (vl-string-search "latitude=\"-" linetext )(progn
 					      (setq p1 (list east north))
 					      (LL2MGA)
 					      ))
@@ -13012,7 +14455,7 @@
 
 (setq cgco (strcat east "," north))
 )(setq cgco nil))
-       (setq cgpointlist (append cgpointlist (list cgpname) (list cgco)(list (substr cgpntsurv 1 1))))
+       (setq cgpointlist (append cgpointlist (list cgpname) (list cgco)(list (substr cgpntsurv 1 2))))
 
        ;if datum point draw datum point and label
 (if (/= cgdesc nil)(progn
@@ -13044,7 +14487,7 @@
        (SETVAR "CLAYER"  "CG Points" )
        (setq p1 (list (atof east) (atof north)))
        (command "point" p1)
-       (COMMAND "TEXT" "J" "BL"  P1 (* TH 0.25) "90" (strcat cgpname (substr cgpntsurv 1 1)(substr cgpstate 1 1)))
+       (COMMAND "TEXT" "J" "BL"  P1 (* TH 0.25) "90" (strcat cgpname (substr cgpntsurv 1 2)(substr cgpstate 1 1)))
        ));p and if <cgpoint
      
 (linereader)
@@ -13138,7 +14581,7 @@
       (if (/= (vl-string-search "<Curve" linetext ) nil)(progn
 							  
 							  (linereader);read startpoint
-							   (if (/= (setq stringpos (vl-string-search "pntRef" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "pntRef=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 8)))
 (setq cp1 (substr linetext (+ stringpos 9) (-(- wwpos 1)(+ stringpos 7))))
 
@@ -13146,7 +14589,7 @@
 							  (if (= (vl-string-search "/>" linetext) nil) (linereader))
 							  
 							   (linereader)
-							   (if (/= (setq stringpos (vl-string-search "pntRef" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "pntRef=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 8)))
 (setq curvecen (substr linetext (+ stringpos 9) (-(- wwpos 1)(+ stringpos 7))))
 
@@ -13154,7 +14597,7 @@
 							  (if (= (vl-string-search "/>" linetext) nil) (linereader))
 							  
 							  (linereader)
-							   (if (/= (setq stringpos (vl-string-search "pntRef" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "pntRef=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 8)))
 (setq cp2 (substr linetext (+ stringpos 9) (-(- wwpos 1)(+ stringpos 7))))
 
@@ -13386,8 +14829,10 @@
 										 ;(setq pclname (substr pclname 1 slashpos1))
 										 (setq origin "THIS PLAN")
 													     )
-						       (SETQ origin pclname)
-						       )
+						       (progn
+							 (setq slashpos1 (vl-string-position 92 pclname 0))
+							  (setq origin (substr pclname slashpos1))
+						        ))
 						  (SETQ LTINFO (STRCAT "  <Parcel name=\"" pclname "\"" pcldescs  " class=\"" pclclass "\" state=\"" pclstate "\" parcelType=\"" pcltype "\""  pclformats  areas pcluses pclowners ">!" pclref))
 						    (if (> (strlen ltinfo) 255) (progn
 										  (princ (strcat "\nEasement " pclname " purpose too long for xdata 255 character limit, truncating"))
@@ -13457,11 +14902,11 @@
 								 (progn
 													
 													     
-						    (if (/= (setq stringpos (vl-string-search "pclRef" linetext )) nil)(progn
+						    (if (/= (setq stringpos (vl-string-search "pclRef=" linetext )) nil)(progn
 							(setq wwpos (vl-string-position 34 linetext (+ stringpos 8)))(setq pclref (substr linetext (+ stringpos 9) (-(- wwpos 1)(+ stringpos 7)))))(setq pclref ""))
-						    (if (/= (setq stringpos (vl-string-search "lotEntitlements" linetext )) nil)(progn
+						    (if (/= (setq stringpos (vl-string-search "lotEntitlements=" linetext )) nil)(progn
 							(setq wwpos (vl-string-position 34 linetext (+ stringpos 17)))(setq lotent (substr linetext (+ stringpos 18) (-(- wwpos 1)(+ stringpos 16)))))(setq lotent ""))
-						    (if (/= (setq stringpos (vl-string-search "liabilityApportionment" linetext )) nil)(progn
+						    (if (/= (setq stringpos (vl-string-search "liabilityApportionment=" linetext )) nil)(progn
 							(setq wwpos (vl-string-position 34 linetext (+ stringpos 24)))(setq lotliab (substr linetext (+ stringpos 25) (-(- wwpos 1)(+ stringpos 23)))))(setq lotliab ""))
 						    (setvar "CLAYER" "lot definitions")
 						    (command "point" ocp)
@@ -13490,24 +14935,26 @@
 (if (/= (vl-string-search "<LocationAddress" linetext ) nil)(progn;check for address string
 							      ;MEROD(princ (strcat "\noc address:" linetext))
 							       
-							   (if (/= (setq stringpos (vl-string-search "addressType" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "addressType=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 13)))(setq addresstype (substr linetext (+ stringpos 14) (-(- wwpos 1)(+ stringpos 12)))))(setq addresstype ""))
-							   (if (/= (setq stringpos (vl-string-search "numberFirst" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "numberFirst=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 13)))(setq numberfirst (substr linetext (+ stringpos 14) (-(- wwpos 1)(+ stringpos 12)))))(setq numberfirst ""))
-							   (if (/= (setq stringpos (vl-string-search "numberSuffixFirst" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "numberSuffixFirst=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 19)))(setq numberSuffixFirst (substr linetext (+ stringpos 20) (-(- wwpos 1)(+ stringpos 18)))))(setq numberSuffixFirst ""))
-							     (if (/= (setq stringpos (vl-string-search "numberLast" linetext )) nil)(progn
+							     (if (/= (setq stringpos (vl-string-search "numberLast=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 12)))(setq numberLast (substr linetext (+ stringpos 13) (-(- wwpos 1)(+ stringpos 11)))))(setq numberLast ""))
-							   (if (/= (setq stringpos (vl-string-search "numberSuffixLast" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "numberSuffixLast=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 18)))(setq numberSuffixLast (substr linetext (+ stringpos 19) (-(- wwpos 1)(+ stringpos 17)))))(setq numberSuffixLast ""))
-							   (if (/= (setq stringpos (vl-string-search "flatNumber" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "flatNumber=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 12)))(setq flatNumber (substr linetext (+ stringpos 13) (-(- wwpos 1)(+ stringpos 11)))))(setq flatNumber ""))
-							   (if (/= (setq stringpos (vl-string-search "flatType" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "flatType=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 10)))(setq flatType (substr linetext (+ stringpos 11) (-(- wwpos 1)(+ stringpos 9)))))(setq flatType ""))
-							   (if (/= (setq stringpos (vl-string-search "floorLevelNumber" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "floorLevelNumber=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 18)))(setq floorLevelNumber (substr linetext (+ stringpos 19) (-(- wwpos 1)(+ stringpos 17)))))(setq floorLevelNumber ""))
-							   (if (/= (setq stringpos (vl-string-search "floorLevelType" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "floorLevelType=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 16)))(setq floorLevelType (substr linetext (+ stringpos 17) (-(- wwpos 1)(+ stringpos 15)))))(setq floorLevelType ""))
+							   (if (/= (setq stringpos (vl-string-search "complexName=" linetext )) nil)(progn
+(setq wwpos (vl-string-position 34 linetext (+ stringpos 13)))(setq complexname (substr linetext (+ stringpos 14) (-(- wwpos 1)(+ stringpos 12)))))(setq complexname ""))
 
 							   
 							   (linereader);read road line
@@ -13515,26 +14962,27 @@
 
 							   (if (/= (setq stringpos (vl-string-search "roadName=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 10)))(setq roadName (substr linetext (+ stringpos 11) (-(- wwpos 1)(+ stringpos 9)))))(setq roadName ""))
-							    (if (/= (setq stringpos (vl-string-search "roadNameSuffix" linetext )) nil)(progn
+							    (if (/= (setq stringpos (vl-string-search "roadNameSuffix=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 10)))(setq roadNameSuffix (substr linetext (+ stringpos 11) (-(- wwpos 1)(+ stringpos 9)))))(setq roadNameSuffix ""))
-							   (if (/= (setq stringpos (vl-string-search "roadNameType" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "roadNameType=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 14)))(setq roadNameType (substr linetext (+ stringpos 15) (-(- wwpos 1)(+ stringpos 13)))))(setq roadNameType ""))
-							   (if (/= (setq stringpos (vl-string-search "roadType" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "roadType=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 10)))(setq roadType (substr linetext (+ stringpos 11) (-(- wwpos 1)(+ stringpos 9)))))(setq roadType ""))
 
 							   (linereader);read nextline
 
-							   (if (/= (setq stringpos (vl-string-search "adminAreaName" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "adminAreaName=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 15)))(setq adminAreaName (substr linetext (+ stringpos 16) (-(- wwpos 1)(+ stringpos 14)))))(setq adminAreaName ""))
-							   (if (/= (setq stringpos (vl-string-search "adminAreaType" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "adminAreaType=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 15)))(setq adminAreaType (substr linetext (+ stringpos 16) (-(- wwpos 1)(+ stringpos 14)))))(setq adminAreaType ""))
-							   (if (/= (setq stringpos (vl-string-search "adminAreaCode" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "adminAreaCode=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 15)))(setq adminAreaCode (substr linetext (+ stringpos 16) (-(- wwpos 1)(+ stringpos 14)))))(setq adminAreaCode ""))
 
 							   (setq comboaddress (strcat numberfirst numbersuffixfirst " " roadname " " roadnametype " " adminareaname " " adminareacode))
 							   (if (and (= (member comboaddress extalist) nil) (= pclstate "extinguished"))(setq extalist (append extalist (list comboaddress))))
 							   (setq smalladdress (strcat "<smalladdress=\"" flatNumber ","
 										     flatType ","
+										     complexname ","
 										     floorLevelNumber ","
 										     floorLevelType ","
 										     numberfirst ","
@@ -13686,14 +15134,14 @@
 					    ;make area to 4 significant figures
 					    (if (/= "" pclarea) (progn
 					    (setq area (atof pclarea))
-					    (if (> area 0)(setq pclareas (strcat (rtos (*  (/ area 0.1) 0.1) 2 1) "m²")))
-					    (if (> area 100)(setq pclareas (strcat (rtos (*  (/ area 1) 1) 2 0) "m²")))
+					    (if (> area 0)(setq pclareas (strcat (rtos (*  (/ area 0.1) 0.1) 2 1) "m ")))
+					    (if (> area 100)(setq pclareas (strcat (rtos (*  (/ area 1) 1) 2 0) "m ")))
       					    (if (> area 10000) (setq pclareas (strcat (rtos (*  (/ (/ area 10000) 0.001) 0.001) 2 3) "ha")))
 					    (if (> area 100000) (setq pclareas (strcat (rtos (*  (/ (/ area 10000) 0.01) 0.01) 2 2) "ha")))
 					    (if (> area 1000000) (setq pclareas (strcat (rtos (*  (/ (/ area 10000) 0.1) 0.1) 2 1) "ha")))
 					    (if (> area 10000000) (setq pclareas (strcat (rtos (*  (/ (/ area 10000) 1) 1) 2 0) "ha")))
-                                            (if (> area 100000000) (setq pclareas (strcat (rtos (*  (/ (/ area 1000000) 0.1) 0.1) 2 1) "km²")))
-                                            (if (> area 1000000000) (setq pclareas (strcat (rtos (*  (/ (/ area 1000000) 1) 1) 2 0) "km²")))
+                                            (if (> area 100000000) (setq pclareas (strcat (rtos (*  (/ (/ area 1000000) 0.1) 0.1) 2 1) "km ")))
+                                            (if (> area 1000000000) (setq pclareas (strcat (rtos (*  (/ (/ area 1000000) 1) 1) 2 0) "km ")))
       
 
 					    (if (/= pclclass "Road")(setq areapos (polar lotc (* 1.5 pi) (* th 2.5)))(setq areapos (polar lotc (* 1.5 pi) (* th 5))))
@@ -13809,7 +15257,7 @@
 
 		 
 		 (linereader);start point
-		 (if (/= (setq stringpos (vl-string-search "pntRef" linetext )) nil)(progn
+		 (if (/= (setq stringpos (vl-string-search "pntRef=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 8)))
 (setq lp1 (substr linetext (+ stringpos 9) (-(- wwpos 1)(+ stringpos 7))))))
 		 (if (= (vl-string-search "/>" linetext) nil) (linereader));read closer
@@ -13817,7 +15265,7 @@
 
 		 
 		(linereader);end point
-		  (if (/= (setq stringpos (vl-string-search "pntRef" linetext )) nil)(progn
+		  (if (/= (setq stringpos (vl-string-search "pntRef=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 8)))
 (setq lp2 (substr linetext (+ stringpos 9) (-(- wwpos 1)(+ stringpos 7))))))
 		 (if (= (vl-string-search "/>" linetext) nil) (linereader));read closer
@@ -13986,11 +15434,11 @@
        (if (/= (vl-string-search "<Line" linetext ) nil)(progn
 
 							  ;check for building boundary
-							    (if (/= (setq stringpos (vl-string-search "desc" linetext )) nil)(progn
+							    (if (/= (setq stringpos (vl-string-search "desc=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 6)))(setq blddesc (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))(setq blddesc ""))
 							  
 							  (linereader)
-							   (if (/= (setq stringpos (vl-string-search "pntRef" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "pntRef=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 8)))
 (setq lp1 (substr linetext (+ stringpos 9) (-(- wwpos 1)(+ stringpos 7))))
 (setq remainlist (member lp1 cgpointlist))
@@ -14000,7 +15448,7 @@
 ;(if (and (/= pclclass "Road")(/= pclclass "Easement")(/= pclclass "Restriction")(/= pclstate "adjoining")(= (member lp1c poplist) nil))(setq poplist (append poplist (list lp1c))))
 ))
 							   (linereader)
-							   (if (/= (setq stringpos (vl-string-search "pntRef" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "pntRef=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 8)))
 (setq lp2 (substr linetext (+ stringpos 9) (-(- wwpos 1)(+ stringpos 7))))
 (setq remainlist (member lp2 cgpointlist))
@@ -14053,15 +15501,15 @@
 
       (if (/= (vl-string-search "<Curve" linetext ) nil)(progn
 							  ;check for building boundary
-							    (if (/= (setq stringpos (vl-string-search "desc" linetext )) nil)(progn
+							    (if (/= (setq stringpos (vl-string-search "desc=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 6)))(setq blddesc (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))(setq blddesc ""))
 							  
-							   (if (/= (setq stringpos (vl-string-search "rot" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "rot=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 5)))(setq curverot (substr linetext (+ stringpos 6) (-(- wwpos 1)(+ stringpos 4))))))
-							 (if (/= (setq stringpos (vl-string-search "radius" linetext )) nil)(progn
+							 (if (/= (setq stringpos (vl-string-search "radius=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 8)))(setq radius (atof(substr linetext (+ stringpos 9) (-(- wwpos 1)(+ stringpos 7)))))))
 							  (linereader)
-							   (if (/= (setq stringpos (vl-string-search "pntRef" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "pntRef=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 8)))
 (setq cp1 (substr linetext (+ stringpos 9) (-(- wwpos 1)(+ stringpos 7))))
 (setq remainlist (member cp1 cgpointlist))
@@ -14072,7 +15520,7 @@
 							  (if (= (vl-string-search "/>" linetext) nil) (linereader))
 							  
 							   (linereader)
-							   (if (/= (setq stringpos (vl-string-search "pntRef" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "pntRef=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 8)))
 (setq curvecen (substr linetext (+ stringpos 9) (-(- wwpos 1)(+ stringpos 7))))
 (setq remainlist (member curvecen cgpointlist))
@@ -14081,7 +15529,7 @@
 							  (if (= (vl-string-search "/>" linetext) nil) (linereader))
 							  
 							  (linereader)
-							   (if (/= (setq stringpos (vl-string-search "pntRef" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "pntRef=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 8)))
 (setq cp2 (substr linetext (+ stringpos 9) (-(- wwpos 1)(+ stringpos 7))))
 (setq remainlist (member cp2 cgpointlist))
@@ -14225,9 +15673,9 @@
       
       (if (/= (vl-string-search "<Title" linetext ) nil)(progn;check for title string
 							  							       
-							   (if (/= (setq stringpos (vl-string-search "name" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "name=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 6)))(setq titlename (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))(setq titlename ""))
-							   (if (/= (setq stringpos (vl-string-search "titleType" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "titleType=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 11)))(setq titletype (substr linetext (+ stringpos 12) (-(- wwpos 1)(+ stringpos 10)))))(setq titletype ""))
 							
 
@@ -14281,24 +15729,26 @@
 
        (if (/= (vl-string-search "<LocationAddress" linetext ) nil)(progn;check for address string
 							       
-							   (if (/= (setq stringpos (vl-string-search "addressType" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "addressType=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 13)))(setq addresstype (substr linetext (+ stringpos 14) (-(- wwpos 1)(+ stringpos 12)))))(setq addresstype ""))
-							   (if (/= (setq stringpos (vl-string-search "numberFirst" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "numberFirst=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 13)))(setq numberfirst (substr linetext (+ stringpos 14) (-(- wwpos 1)(+ stringpos 12)))))(setq numberfirst ""))
-							   (if (/= (setq stringpos (vl-string-search "numberSuffixFirst" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "numberSuffixFirst=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 19)))(setq numberSuffixFirst (substr linetext (+ stringpos 20) (-(- wwpos 1)(+ stringpos 18)))))(setq numberSuffixFirst ""))
-							     (if (/= (setq stringpos (vl-string-search "numberLast" linetext )) nil)(progn
+							     (if (/= (setq stringpos (vl-string-search "numberLast=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 12)))(setq numberLast (substr linetext (+ stringpos 13) (-(- wwpos 1)(+ stringpos 11)))))(setq numberLast ""))
-							   (if (/= (setq stringpos (vl-string-search "numberSuffixLast" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "numberSuffixLast=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 18)))(setq numberSuffixLast (substr linetext (+ stringpos 19) (-(- wwpos 1)(+ stringpos 17)))))(setq numberSuffixLast ""))
-							   (if (/= (setq stringpos (vl-string-search "flatNumber" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "flatNumber=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 12)))(setq flatNumber (substr linetext (+ stringpos 13) (-(- wwpos 1)(+ stringpos 11)))))(setq flatNumber ""))
-							   (if (/= (setq stringpos (vl-string-search "flatType" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "flatType=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 10)))(setq flatType (substr linetext (+ stringpos 11) (-(- wwpos 1)(+ stringpos 9)))))(setq flatType ""))
-							   (if (/= (setq stringpos (vl-string-search "floorLevelNumber" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "floorLevelNumber=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 18)))(setq floorLevelNumber (substr linetext (+ stringpos 19) (-(- wwpos 1)(+ stringpos 17)))))(setq floorLevelNumber ""))
-							   (if (/= (setq stringpos (vl-string-search "floorLevelType" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "floorLevelType=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 16)))(setq floorLevelType (substr linetext (+ stringpos 17) (-(- wwpos 1)(+ stringpos 15)))))(setq floorLevelType ""))
+					                  (if (/= (setq stringpos (vl-string-search "complexName=" linetext )) nil)(progn
+(setq wwpos (vl-string-position 34 linetext (+ stringpos 13)))(setq complexname (substr linetext (+ stringpos 14) (-(- wwpos 1)(+ stringpos 12)))))(setq complexname ""))
 
 							   
 							   (linereader)
@@ -14306,26 +15756,27 @@
 
 							   (if (/= (setq stringpos (vl-string-search "roadName=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 10)))(setq roadName (substr linetext (+ stringpos 11) (-(- wwpos 1)(+ stringpos 9)))))(setq roadName ""))
-							    (if (/= (setq stringpos (vl-string-search "roadNameSuffix" linetext )) nil)(progn
+							    (if (/= (setq stringpos (vl-string-search "roadNameSuffix=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 10)))(setq roadNameSuffix (substr linetext (+ stringpos 11) (-(- wwpos 1)(+ stringpos 9)))))(setq roadNameSuffix ""))
-							   (if (/= (setq stringpos (vl-string-search "roadNameType" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "roadNameType=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 14)))(setq roadNameType (substr linetext (+ stringpos 15) (-(- wwpos 1)(+ stringpos 13)))))(setq roadNameType ""))
-							   (if (/= (setq stringpos (vl-string-search "roadType" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "roadType=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 10)))(setq roadType (substr linetext (+ stringpos 11) (-(- wwpos 1)(+ stringpos 9)))))(setq roadType ""))
 
 							   (linereader);read nextline
 
-							   (if (/= (setq stringpos (vl-string-search "adminAreaName" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "adminAreaName=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 15)))(setq adminAreaName (substr linetext (+ stringpos 16) (-(- wwpos 1)(+ stringpos 14)))))(setq adminAreaName ""))
-							   (if (/= (setq stringpos (vl-string-search "adminAreaType" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "adminAreaType=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 15)))(setq adminAreaType (substr linetext (+ stringpos 16) (-(- wwpos 1)(+ stringpos 14)))))(setq adminAreaType ""))
-							   (if (/= (setq stringpos (vl-string-search "adminAreaCode" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "adminAreaCode=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 15)))(setq adminAreaCode (substr linetext (+ stringpos 16) (-(- wwpos 1)(+ stringpos 14)))))(setq adminAreaCode ""))
 
 							   (setq comboaddress (strcat numberfirst numbersuffixfirst " " roadname " " roadnametype " " adminareaname " " adminareacode))
 							   (if (and (= (member comboaddress extalist) nil) (= pclstate "extinguished"))(setq extalist (append extalist (list comboaddress))))
 							   (setq smalladdress (strcat "<smalladdress=\"" flatNumber ","
 										     flatType ","
+										     complexname ","
 										     floorLevelNumber ","
 										     floorLevelType ","
 										     numberfirst ","
@@ -14636,7 +16087,7 @@
 	(while (/=  (setq apos (vl-string-search "&apos;" pcldesc apos )) nil) (setq pcldesc (vl-string-subst "'" "&apos;"  pcldesc apos)
 										      apos (+ apos 1)))
 	    (setq apos 0)
-	    	(while (/=  (setq apos (vl-string-search "&#176;" pcldesc apos )) nil) (setq pcldesc (vl-string-subst "°" "&#176;"  pcldesc apos)
+	    	(while (/=  (setq apos (vl-string-search "&#176;" pcldesc apos )) nil) (setq pcldesc (vl-string-subst " " "&#176;"  pcldesc apos)
 										      apos (+ apos 1)))
 										
 										
@@ -14680,9 +16131,9 @@
   (setq sp nil)
 					  
 ;get parcel info
-       (if (/= (setq stringpos (vl-string-search "name" linetext )) nil)(progn
+       (if (/= (setq stringpos (vl-string-search "name=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 6)))(setq pclname (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))(setq pclname ""))
-       (if (/= (setq stringpos (vl-string-search "desc" linetext )) nil)(progn
+       (if (/= (setq stringpos (vl-string-search "desc=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 6)))(setq pcldesc (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))(setq pcldesc ""))
 (setq &pos 0)
   	      (while (/=  (setq &pos (vl-string-search "&amp;" pcldesc &pos )) nil) (setq pcldesc (vl-string-subst "&" "&amp;"  pcldesc &pos)
@@ -14726,7 +16177,7 @@
        
 
        (if (/= (vl-string-search "<Line" linetext ) nil)(progn
-							   (if (/= (setq stringpos (vl-string-search "desc" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "desc=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 6)))(setq ldesc (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))(setq ldesc ""))
 (setq &pos 0)
 
@@ -14734,7 +16185,7 @@
 							   
 							 (linereader)
 							  
-							   (if (/= (setq stringpos (vl-string-search "pntRef" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "pntRef=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 8)))
 (setq lp1 (substr linetext (+ stringpos 9) (-(- wwpos 1)(+ stringpos 7))))
 (setq remainlist (member lp1 cgpointlist))
@@ -14743,7 +16194,7 @@
 (if (= (vl-string-search "/>" linetext ) nil) (linereader))
 ))
 							   (linereader)
-							   (if (/= (setq stringpos (vl-string-search "pntRef" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "pntRef=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 8)))
 (setq lp2 (substr linetext (+ stringpos 9) (-(- wwpos 1)(+ stringpos 7))))
 (setq remainlist (member lp2 cgpointlist))
@@ -14806,13 +16257,13 @@
 							  ));p and if line
 
       (if (/= (vl-string-search "<Curve" linetext ) nil)(progn
-							   (if (/= (setq stringpos (vl-string-search "rot" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "rot=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 5)))(setq curverot (substr linetext (+ stringpos 6) (-(- wwpos 1)(+ stringpos 4))))))
-							 (if (/= (setq stringpos (vl-string-search "radius" linetext )) nil)(progn
+							 (if (/= (setq stringpos (vl-string-search "radius=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 8)))(setq radius (substr linetext (+ stringpos 9) (-(- wwpos 1)(+ stringpos 7))))))
 							  
 							  (linereader)
-							   (if (/= (setq stringpos (vl-string-search "pntRef" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "pntRef=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 8)))
 (setq cp1 (substr linetext (+ stringpos 9) (-(- wwpos 1)(+ stringpos 7))))
 (setq remainlist (member cp1 cgpointlist))
@@ -14820,14 +16271,14 @@
 (setq ptlist (append ptlist (list lp1c)))
 ))
 							   (linereader)
-							   (if (/= (setq stringpos (vl-string-search "pntRef" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "pntRef=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 8)))
 (setq curvecen (substr linetext (+ stringpos 9) (-(- wwpos 1)(+ stringpos 7))))
 (setq remainlist (member curvecen cgpointlist))
 (setq curvecenc (cadr remainlist))
 ))
 							   (linereader)
-							   (if (/= (setq stringpos (vl-string-search "pntRef" linetext )) nil)(progn
+							   (if (/= (setq stringpos (vl-string-search "pntRef=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 8)))
 (setq cp2 (substr linetext (+ stringpos 9) (-(- wwpos 1)(+ stringpos 7))))
 (setq remainlist (member cp2 cgpointlist))
@@ -15021,19 +16472,19 @@
   (linereader);read (Survey Header
   
 
-    (if (/= (setq stringpos (vl-string-search "name" linetext )) nil)(progn
+    (if (/= (setq stringpos (vl-string-search "name=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 6)))(setq shname (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))(setq shname nil))
-   (if (/= (setq stringpos (vl-string-search "jurisdiction" linetext )) nil)(progn
+   (if (/= (setq stringpos (vl-string-search "jurisdiction=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 14)))(setq shjur (substr linetext (+ stringpos 15) (-(- wwpos 1)(+ stringpos 13)))))(setq shjur nil))
-   (if (/= (setq stringpos (vl-string-search "desc" linetext )) nil)(progn
+   (if (/= (setq stringpos (vl-string-search "desc=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 6)))(setq shdesc (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))(setq shdesc nil))
-   (if (/= (setq stringpos (vl-string-search "surveyorFirm" linetext )) nil)(progn
+   (if (/= (setq stringpos (vl-string-search "surveyorFirm=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 14)))(setq shfirm (substr linetext (+ stringpos 15) (-(- wwpos 1)(+ stringpos 13)))))(setq shfirm nil))
-   (if (/= (setq stringpos (vl-string-search "surveyorReference" linetext )) nil)(progn
+   (if (/= (setq stringpos (vl-string-search "surveyorReference=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 19)))(setq shref (substr linetext (+ stringpos 20) (-(- wwpos 1)(+ stringpos 18)))))(setq shref nil))
-  (if (/= (setq stringpos (vl-string-search "surveyFormat" linetext )) nil)(progn
+  (if (/= (setq stringpos (vl-string-search "surveyFormat=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 14)))(setq shformat (substr linetext (+ stringpos 15) (-(- wwpos 1)(+ stringpos 13)))))(setq shformat nil))
-  (if (/= (setq stringpos (vl-string-search "type" linetext )) nil)(progn
+  (if (/= (setq stringpos (vl-string-search "type=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 6)))(setq shtype (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))(setq shtype nil))
 
   (if (= shtype "compiled")(setq shtype "partially surveyed"))
@@ -15046,6 +16497,8 @@
 	shpn nil
 	shsurveyor nil
 	shpurpose nil
+	shpurpose1 nil
+	shpurpose2 nil
 	shlocality nil
 	shlga nil
 	shparish nil
@@ -15060,6 +16513,9 @@
 	shca nil
 	shcp nil
 	shhop nil
+	shpce nil
+	shpcn nil
+	shpcz nil
 	 
 	);reset all variable variables
 	 
@@ -15075,12 +16531,12 @@
 	  ;personel-------------------------------
 	   (if (/= (vl-string-search "<Personnel" linetext ) nil)
 	    (progn
-	    (setq stringpos (vl-string-search "name" linetext ))
+	    (setq stringpos (vl-string-search "name=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 6)))
 	    (setq shsurveyor (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5))))
 
 	    ;VIC EXTRAS
-	    (setq stringpos (vl-string-search "regType" linetext ))
+	    (setq stringpos (vl-string-search "regType=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 9)))
 	    (setq shregtype (substr linetext (+ stringpos 10) (-(- wwpos 1)(+ stringpos 8))))
 	    	    (setq stringpos (vl-string-search "regNumber" linetext ))
@@ -15091,7 +16547,7 @@
 	  ;Annotation------------@@@@@other annotation types need to be added later
 
 	  (if (/= (vl-string-search "<Annotation" linetext ) nil)(progn
-	(setq stringpos (vl-string-search "type" linetext ))
+	(setq stringpos (vl-string-search "type=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 6)))
 	    (setq annotype (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5))))
 				(setvar "clayer" "Admin Sheet")
@@ -15104,33 +16560,54 @@
 ;VIC
 	  (if (= annotype "Township"  )
   	  	    (progn
-	    (setq stringpos (vl-string-search "desc" linetext ))
+	    (setq stringpos (vl-string-search "desc=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 6)))
 	    (setq shts (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5))))
 	    ))
 	(if (= annotype "Crown Section"  )
   	  	    (progn
-	    (setq stringpos (vl-string-search "desc" linetext ))
+	    (setq stringpos (vl-string-search "desc=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 6)))
 	    (setq shcs (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5))))
 	    ))
 	  (if (= annotype "Crown Allotment"  )
 	      (progn
-	    (setq stringpos (vl-string-search "desc" linetext ))
+	    (setq stringpos (vl-string-search "desc=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 6)))
 	    (setq shca (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5))))
 	    ))
 	    (if (= annotype "Crown Portion"  )
 	      (progn
-	    (setq stringpos (vl-string-search "desc" linetext ))
+	    (setq stringpos (vl-string-search "desc=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 6)))
 	    (setq shcp (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5))))
 	    ))
 
+	(if (= annotype "Approx. Centre of Land"  )
+	      (progn
+	    (setq stringpos (vl-string-search "desc=" linetext ))
+	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 6)))
+	    (setq shcol (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5))))
+
+	    (setq &pos 0);replace &amp; with &
+	(while (/=  (setq &pos (vl-string-search "&amp;" pcldesc &pos )) nil) (setq pcldesc (vl-string-subst "&" "&amp;"   pcldesc &pos)
+										      &pos (+ &pos 1)))
+	     (setq stringpos (vl-string-search "zoneNumber=" shcol))
+	    (setq &pos (vl-string-position 38 shcol (+ stringpos 12)))
+	    (setq shpcz (substr shcol (+ stringpos 12) (-(- &pos 1)(+ stringpos 10))))
+	    	     (setq stringpos (vl-string-search "easting=" shcol))
+	    (setq &pos (vl-string-position 38 shcol (+ stringpos 9)))
+	    (setq shpce (substr shcol (+ stringpos 9) (-(- &pos 1)(+ stringpos 7))))
+	    	    	     (setq stringpos (vl-string-search "northing=" shcol))
+	    (setq shpcn (substr shcol (+ stringpos 10) ))
+	    
+	    ))
+
+
 
 	;normal notes
 	  (if (member annotype notetypelist)(progn
-					       (setq stringpos (vl-string-search "desc" linetext ))
+					       (setq stringpos (vl-string-search "desc=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 6)))
 	    (setq pcldesc (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5))))
 					      
@@ -15156,7 +16633,7 @@
 	(while (/=  (setq apos (vl-string-search "&apos;" pcldesc apos )) nil) (setq pcldesc (vl-string-subst "'" "&apos;"  pcldesc apos)
 										      apos (+ apos 1)))
 	    (setq apos 0)
-	    	(while (/=  (setq apos (vl-string-search "&#176;" pcldesc apos )) nil) (setq pcldesc (vl-string-subst "°" "&#176;"  pcldesc apos)
+	    	(while (/=  (setq apos (vl-string-search "&#176;" pcldesc apos )) nil) (setq pcldesc (vl-string-subst " " "&#176;"  pcldesc apos)
 										      apos (+ apos 1)))
 					      
 					      
@@ -15178,7 +16655,7 @@
 	
 
   (if (member annotype noteandpcllist)(progn
-					       (setq stringpos (vl-string-search "desc" linetext ))
+					       (setq stringpos (vl-string-search "desc=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 6)))
 	    (setq pcldesc (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5))))
 
@@ -15207,12 +16684,12 @@
 	(while (/=  (setq apos (vl-string-search "&apos;" pcldesc apos )) nil) (setq pcldesc (vl-string-subst "'" "&apos;"  pcldesc apos)
 										      apos (+ apos 1)))
 	    (setq apos 0)
-	    	(while (/=  (setq apos (vl-string-search "&#176;" pcldesc apos )) nil) (setq pcldesc (vl-string-subst "°" "&#176;"  pcldesc apos)
+	    	(while (/=  (setq apos (vl-string-search "&#176;" pcldesc apos )) nil) (setq pcldesc (vl-string-subst " " "&#176;"  pcldesc apos)
 										      apos (+ apos 1)))
 			
 					
 					
-					(setq stringpos (vl-string-search "pclRef" linetext ))
+					(setq stringpos (vl-string-search "pclRef=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 8)))
 	    (setq pclref (substr linetext (+ stringpos 9) (-(- wwpos 1)(+ stringpos 7))))
 					
@@ -15245,7 +16722,7 @@
 		
 
   (if (member annotype nandoppcllist)(progn
-					       (setq stringpos (vl-string-search "desc" linetext ))
+					       (setq stringpos (vl-string-search "desc=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 6)))
 	    (setq pcldesc (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5))))
 
@@ -15273,11 +16750,11 @@
 	(while (/=  (setq apos (vl-string-search "&apos;" pcldesc apos )) nil) (setq pcldesc (vl-string-subst "'" "&apos;"  pcldesc apos)
 										      apos (+ apos 1)))
 	    (setq apos 0)
-	    	(while (/=  (setq apos (vl-string-search "&#176;" pcldesc apos )) nil) (setq pcldesc (vl-string-subst "°" "&#176;"  pcldesc apos)
+	    	(while (/=  (setq apos (vl-string-search "&#176;" pcldesc apos )) nil) (setq pcldesc (vl-string-subst " " "&#176;"  pcldesc apos)
 										      apos (+ apos 1)))
 				       
 				       
-					(if (/= (setq stringpos (vl-string-search "pclRef" linetext )) nil)(progn
+					(if (/= (setq stringpos (vl-string-search "pclRef=" linetext )) nil)(progn
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 8)))
 	    (setq pclref (substr linetext (+ stringpos 9) (-(- wwpos 1)(+ stringpos 7)))))(setq pclref ""))
 
@@ -15306,7 +16783,7 @@
 
 
   (if (= annotype "Surveyor's Report Notation")(progn
-					       (setq stringpos (vl-string-search "desc" linetext ))
+					       (setq stringpos (vl-string-search "desc=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 6)))
 	    (setq pcldesc (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5))))
 
@@ -15334,11 +16811,11 @@
 	(while (/=  (setq apos (vl-string-search "&apos;" pcldesc apos )) nil) (setq pcldesc (vl-string-subst "'" "&apos;"  pcldesc apos)
 										      apos (+ apos 1)))
 	    (setq apos 0)
-	    	(while (/=  (setq apos (vl-string-search "&#176;" pcldesc apos )) nil) (setq pcldesc (vl-string-subst "°" "&#176;"  pcldesc apos)
+	    	(while (/=  (setq apos (vl-string-search "&#176;" pcldesc apos )) nil) (setq pcldesc (vl-string-subst " " "&#176;"  pcldesc apos)
 										      apos (+ apos 1)))
 				       
 				       
-					(if (/= (setq stringpos (vl-string-search "pclRef" linetext )) nil)(progn
+					(if (/= (setq stringpos (vl-string-search "pclRef=" linetext )) nil)(progn
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 8)))
 	    (setq pclref (substr linetext (+ stringpos 9) (-(- wwpos 1)(+ stringpos 7)))))(setq pclref ""))
 
@@ -15373,11 +16850,11 @@
 
 	(if (= annotype "Easement Width")(progn
 
-					    (setq stringpos (vl-string-search "desc" linetext ))
+					    (setq stringpos (vl-string-search "desc=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 6)))
 	    (setq pcldesc (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5))))
 					   
-					   (setq stringpos (vl-string-search "pclRef" linetext ))
+					   (setq stringpos (vl-string-search "pclRef=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 8)))
 	    (setq pclref (substr linetext (+ stringpos 9) (-(- wwpos 1)(+ stringpos 7))))
 
@@ -15404,14 +16881,14 @@
 
 		     
     (PRINC (STRCAT "\n" easelink "-" pclref))
-(if (= easelink pclref)(setq ep (list (+ (car p1) 95)(cadr p1))))
+(if (or (/= (vl-string-search (strcat pclref ",") easelink) nil)(= (substr easelink (- (strlen pclref) 1)) pclref))(setq ep (list (+ (car p1) 95)(cadr p1))))
    
     
     (setq count (+ count 1))
 	  )
 	))
 
-    	(command "mtext" ep "h" "2.5" "@18,2.5" pcldesc "")
+    	(command "-mtext" ep "h" "2.5" "@18,2.5" pcldesc "")
 	 (SETQ LTINFO2 (strcat "<Annotation type=\"" annotype "\" pclRef=\"" pclref "\"" ))
     (SETQ SENT (ENTLAST))
 						    (SETQ SENTLIST (ENTGET SENT))
@@ -15428,11 +16905,13 @@
 	  
 	   (if (/= (vl-string-search "<HeadOfPower" linetext ) nil)
 	    (progn
-	    (setq stringpos (vl-string-search "name" linetext ))
+	    (setq stringpos (vl-string-search "name=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 6)))
-	    (if (/= shhop nil)(setq shhop (strcat shhop " & " (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))
-	    (setq shhop (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))
+	    (if (/= shhop nil)(setq shhop (strcase (strcat shhop " & " (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5))))))
+	    (setq shhop (strcase (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5))))))
 	    ))
+
+	  
 	  
 
 
@@ -15443,7 +16922,7 @@
 	  (if (/= (vl-string-search "<PurposeOfSurvey" linetext ) nil)
 	    (progn
 	      
-	    (setq stringpos (vl-string-search "name" linetext ))
+	    (setq stringpos (vl-string-search "name=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 6)))
 	    (if (= shpurpose nil)
 	    (setq shpurpose (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5))))
@@ -15451,13 +16930,14 @@
 	      )
 	    ;if normal purpose
 	    (if (/= (setq -pos1 (vl-string-position 45 shpurpose 0)) nil)(progn
-                 (setq shpurpose1  (substr shpurpose 1 -pos1))
-      		 (setq shpurpose2  (substr shpurpose (+ -pos1 2) 2000))
-		 ));if normal purpose
+                 (setq shpurpose1  (strcase (substr shpurpose 1 -pos1)))
+      		 (setq shpurpose2  (strcase (substr shpurpose (+ -pos1 2) 2000)))
+		 )
+	      );if normal purpose
 	    ;if non descriptive purpose 26 or 37(8)
-	    (if (= shpurpose "Section 26")(setq shpurpose1 shpurpose
+	    (if (= shpurpose "Section 26")(setq shpurpose1 (strcase shpurpose)
 						shpurpose2 "Boundary Plan"))
-	    (if (= shpurpose "Section 37(8)")(setq shpurpose1 shpurpose
+	    (if (= shpurpose "Section 37(8)")(setq shpurpose1 (strcase shpurpose)
 						shpurpose2 "Plan of Subdivision (Staged Plan)"))
 	    
 	    	    ))
@@ -15468,44 +16948,44 @@
 	  ;Administrative area
 	  (if (and (/= (vl-string-search "<AdministrativeArea" linetext ) nil)(/= (vl-string-search "adminAreaType=\"Locality\"" linetext ) nil))
 	    (progn
-	    (setq stringpos (vl-string-search "adminAreaName" linetext ))
+	    (setq stringpos (vl-string-search "adminAreaName=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 15)))
 	    (setq shlocality (substr linetext (+ stringpos 16) (-(- wwpos 1)(+ stringpos 14))))
 	    ))
 	  (if (and (/= (vl-string-search "<AdministrativeArea" linetext ) nil)(/= (vl-string-search "adminAreaType=\"LGA\"" linetext ) nil))
 	    (progn
-	    (setq stringpos (vl-string-search "adminAreaName" linetext ))
+	    (setq stringpos (vl-string-search "adminAreaName=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 15)))
 	    (setq shlga (substr linetext (+ stringpos 16) (-(- wwpos 1)(+ stringpos 14))))
-	     (setq stringpos (vl-string-search "adminAreaCode" linetext ))
+	     (setq stringpos (vl-string-search "adminAreaCode=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 15)))
 	    (setq shlgacode (substr linetext (+ stringpos 16) (-(- wwpos 1)(+ stringpos 14))))
 	    ))
 	  (if (and (/= (vl-string-search "<AdministrativeArea" linetext ) nil)(/= (vl-string-search "adminAreaType=\"Parish\"" linetext ) nil))
 	    (progn
-	    (setq stringpos (vl-string-search "adminAreaName" linetext ))
+	    (setq stringpos (vl-string-search "adminAreaName=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 15)))
 	    (setq shparish (substr linetext (+ stringpos 16) (-(- wwpos 1)(+ stringpos 14))))
-	     (setq stringpos (vl-string-search "adminAreaCode" linetext ))
+	     (setq stringpos (vl-string-search "adminAreaCode=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 15)))
 	    (setq shparishcode (substr linetext (+ stringpos 16) (-(- wwpos 1)(+ stringpos 14))))
 	    
 	    ))
 	  (if (and (/= (vl-string-search "<AdministrativeArea" linetext ) nil)(/= (vl-string-search "adminAreaType=\"County\"" linetext ) nil))
 	    (progn
-	    (setq stringpos (vl-string-search "adminAreaName" linetext ))
+	    (setq stringpos (vl-string-search "adminAreaName=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 15)))
 	    (setq shcounty (substr linetext (+ stringpos 16) (-(- wwpos 1)(+ stringpos 14))))
 	    ))
 	  (if (and (/= (vl-string-search "<AdministrativeArea" linetext ) nil)(/= (vl-string-search "adminAreaType=\"Survey Region\"" linetext ) nil))
 	    (progn
-	    (setq stringpos (vl-string-search "adminAreaName" linetext ))
+	    (setq stringpos (vl-string-search "adminAreaName=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 15)))
 	    (setq shsurveyregion (substr linetext (+ stringpos 16) (-(- wwpos 1)(+ stringpos 14))))
 	    ))
 	  	  (if (and (/= (vl-string-search "<AdministrativeArea" linetext ) nil)(/= (vl-string-search "adminAreaType=\"Terrain\"" linetext ) nil))
 	    (progn
-	    (setq stringpos (vl-string-search "adminAreaName" linetext ))
+	    (setq stringpos (vl-string-search "adminAreaName=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 15)))
 	    (setq shterrain (substr linetext (+ stringpos 16) (-(- wwpos 1)(+ stringpos 14))))
 	    ))
@@ -15565,6 +17045,10 @@
   (if (= shregnumber nil)(setq shregnumber ""))
     (if (= shlgacode nil)(setq shlgacode ""))
   (if (= shparishcode nil)(setq shparishcode ""))
+  (if (= shpce nil)(setq shpce ""))
+  (if (= shpcn nil)(setq shpcn ""))
+  (if (= shpcz nil)(setq shpcz ""))
+    
 
   (setq &pos 0)
   	      (while (/=  (setq &pos (vl-string-search "&amp;" shpln &pos )) nil) (setq shpln (vl-string-subst "&" "&amp;"  shpln &pos)
@@ -15652,7 +17136,7 @@
   ;insert titleblock
 ;changed for BricsCAD
   ;(princ (strcat  shname shlga shparish shfirm shref shpurpose1 shca shcs exttitles "" extaddress "" shlpr shdl shtype shpurpose2 shhop shsurveyor shregnumber shdos shjur shformat datum hdatum zone shlgacode shparishcode))
-  (COMMAND "._INSERT" "ADMINSHEET" "_S" "1" tbinsertpoint "0" shname shlga shparish shfirm shref  shts shcs shca shcp exttitles "" extaddress "" shlpr shdl shtype shpurpose2 shhop shsurveyor shregnumber shdos shjur shformat datum hdatum zone shlgacode shparishcode shpurpose1)
+  (COMMAND "._INSERT" "ADMINSHEET" "_S" "1" tbinsertpoint "0" shname shlga shparish shfirm shref  shts shcs shca shcp exttitles "" extaddress "" shlpr shdl shtype shpurpose2 shhop shsurveyor shregnumber shdos shjur shformat datum hdatum zone shlgacode shparishcode shpurpose1 shpce shpcn shpcz)
    
   ;instrument stations
 ;  (setq linetext (read-line xmlfile))
@@ -15700,36 +17184,43 @@
 	    (progn
 	      
 	      
-	    (if (/= (setq stringpos (vl-string-search "desc" linetext )) nil)(progn
+	    (if (/= (setq stringpos (vl-string-search "desc=" linetext )) nil)(progn
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 6)))
             (setq desc (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5))))
 	    )(setq desc ""))
 
-	    (setq stringpos (vl-string-search "setupID" linetext ))
+	     (if (/= (setq stringpos (vl-string-search "name=" linetext )) nil)(progn
+	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 6)))
+            (setq obsn (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5))))
+	    )(setq obsn ""))
+
+	    (setq stringpos (vl-string-search "setupID=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 9)))
             (setq setupids (strcat "IS-" (substr linetext (+ stringpos 10) (-(- wwpos 1)(+ stringpos 8)))))
 	    (setq remlist (member setupids islist))
 	    (setq setupid (cadr remlist))
 
-	    (setq stringpos (vl-string-search "targetSetupID" linetext ))
+	    (setq stringpos (vl-string-search "targetSetupID=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 15)))
             (setq targetid (strcat "IS-" (substr linetext (+ stringpos 16) (-(- wwpos 1)(+ stringpos 14)))))
 	    (setq remlist (member targetid islist))
 	    (setq targetid (cadr remlist))
 
-	    (setq stringpos (vl-string-search "azimuth" linetext ))
+	    (setq stringpos (vl-string-search "azimuth=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 9)))
             (setq bearing (substr linetext (+ stringpos 10) (-(- wwpos 1)(+ stringpos 8))))
-	    (setq xbearing bearing)
+	    (setq dotpos (vl-string-position 46 bearing));remove trailing seconds zeros
+    (if (and (= (strlen (substr bearing (+ dotpos 2))) 4)(= (substr bearing (+ dotpos 4) 2) "00"))(setq bearing (substr bearing 1 (+ dotpos 3))))
+  	    (setq xbearing bearing)
 
-	     (setq stringpos (vl-string-search "purpose" linetext ))
+	     (setq stringpos (vl-string-search "purpose=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 9)))
             (setq purpose (substr linetext (+ stringpos 10) (-(- wwpos 1)(+ stringpos 8))))
 	    (if (= purpose "normal" )(setq purpose "Boundary"))
 	    (setq rolayer purpose)
 	    
 
-	    (if (/= (setq stringpos (vl-string-search "horizDistance" linetext )) nil)(progn
+	    (if (/= (setq stringpos (vl-string-search "horizDistance=" linetext )) nil)(progn
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 15)))
             (setq dist (substr linetext (+ stringpos 16) (-(- wwpos 1)(+ stringpos 14)))))(setq dist ""))
 
@@ -15741,16 +17232,16 @@
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 13)))
             (setq azimuthtype (strcat " azimuthType=\"" (substr linetext (+ stringpos 14) (-(- wwpos 1)(+ stringpos 12))) "\" ")))(setq azimuthtype ""))
 
-	    (if (/= (setq stringpos (vl-string-search "distanceAdoptionFactor" linetext )) nil)(progn
+	    (if (/= (setq stringpos (vl-string-search "distanceAdoptionFactor=" linetext )) nil)(progn
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 24)))
             (setq daf (substr linetext (+ stringpos 25) (-(- wwpos 1)(+ stringpos 23))))
 	    (if (/= daf "")(setq daf1 daf)))(setq daf ""))
 
-	    (if (setq stringpos (vl-string-search "angleAccClass" linetext ))(progn
+	    (if (setq stringpos (vl-string-search "angleAccClass=" linetext ))(progn
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 15)))
             (setq sdb (substr linetext (+ stringpos 16) (-(- wwpos 1)(+ stringpos 14)))))(setq sdb ""))
 
-	    (if (setq stringpos (vl-string-search "distanceAccClass" linetext ))(progn
+	    (if (setq stringpos (vl-string-search "distanceAccClass=" linetext ))(progn
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 18)))
             (setq sdd (substr linetext (+ stringpos 19) (-(- wwpos 1)(+ stringpos 17)))))(setq sdd ""))
 		  
@@ -15833,11 +17324,31 @@
       (if (member  (strcat lp1c ","lp2c "," rolayer) linelist)()
   (progn
 
-    (if (or (= azimuthtype  "azimuthType=\"Estimated\" ") (= distancetype " distanceType=\"Estimated\" "))
+    
+    (if (or (= azimuthtype  " azimuthType=\"Estimated\" ")
+	    (= azimuthtype  " azimuthType=\"Derived\" ")
+	    (= azimuthtype  " azimuthType=\"Ignored\" ")
+	    (= azimuthtype  " azimuthType=\"ProvidedbyDELWP\" ")
+	    (= azimuthtype  " azimuthType=\"Generated\" ")
+	    (= azimuthtype  " azimuthType=\"About\" ")
+	    (= azimuthtype  " azimuthType=\"Assumed\" ")
+	    (= distancetype  " distanceType=\"Estimated\" ")
+	    (= distancetype  " distanceType=\"Derived\" ")
+	    (= distancetype  " distanceType=\"Ignored\" ")
+	    (= distancetype  " distanceType=\"ProvidedbyDELWP\" ")
+	    (= distancetype  " distanceType=\"Generated\" ")
+	    (= distancetype  " distanceType=\"About\" ")
+	    (= distancetype  " distanceType=\"Assumed\" ")
+	    )
       (progn
+	(setq curcolour (getvar "CECOLOR"))
 	(setvar "CECOLOR" "1")
-	(princ "\nCAUTION - Plan contains estimated distance (marked red)")
-	(setq comment (strcat comment " ESTIMATED"))
+	(princ "\nCAUTION - Plan contains sketchy distances (marked red)")
+	    (if (/= (setq stringpos (vl-string-search "azimuthType=" azimuthtype ))nil)(progn
+	    (setq wwpos (vl-string-position 34 azimuthtype (+ stringpos 13)))
+            (setq comment  (strcase (substr azimuthtype (+ stringpos 14) (-(- wwpos 1)(+ stringpos 12)))))
+	    ))
+	
 	))
 
     
@@ -15858,7 +17369,23 @@
       (if (member (strcat lp1c "," lp2c "," rolayer) linelist)()(lba));label line if not already labelled
     ))
 
-	    (if (or (= azimuthtype  "azimuthType=\"Estimated\" ") (= distancetype " distanceType=\"Estimated\" "))(setvar "CECOLOR" "BYLAYER"))
+	   
+    (if (or (= azimuthtype  " azimuthType=\"Estimated\" ")
+	    (= azimuthtype  " azimuthType=\"Derived\" ")
+	    (= azimuthtype  " azimuthType=\"Ignored\" ")
+	    (= azimuthtype  " azimuthType=\"ProvidedbyDELWP\" ")
+	    (= azimuthtype  " azimuthType=\"Generated\" ")
+	    (= azimuthtype  " azimuthType=\"About\" ")
+	    (= azimuthtype  " azimuthType=\"Assumed\" ")
+	    (= distancetype  " distanceType=\"Estimated\" ")
+	    (= distancetype  " distanceType=\"Derived\" ")
+	    (= distancetype  " distanceType=\"Ignored\" ")
+	    (= distancetype  " distanceType=\"ProvidedbyDELWP\" ")
+	    (= distancetype  " distanceType=\"Generated\" ")
+	    (= distancetype  " distanceType=\"About\" ")
+	    (= distancetype  " distanceType=\"Assumed\" ")
+	    )
+	    (setvar "CECOLOR" curcolour))
 
 	    (if (= rolayer "traverse");add triangles if traverse line
 	      (progn
@@ -15889,49 +17416,56 @@
 	    (progn
 	      
 	      
-	    (if (/= (setq stringpos (vl-string-search "desc" linetext )) nil)(progn
+	    (if (/= (setq stringpos (vl-string-search "desc=" linetext )) nil)(progn
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 6)))
             (setq desc (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))(setq desc ""))
 
-	    (setq stringpos (vl-string-search "purpose" linetext ))
+	    	     (if (/= (setq stringpos (vl-string-search "name=" linetext )) nil)(progn
+	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 6)))
+            (setq obsn (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5))))
+	    )(setq obsn ""))
+
+	    (setq stringpos (vl-string-search "purpose=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 9)))
             (setq purpose (substr linetext (+ stringpos 10) (-(- wwpos 1)(+ stringpos 8))))
 	    (if (= purpose "normal" )(setq purpose "Boundary"))
             (setq rolayer purpose)
 
-	    (setq stringpos (vl-string-search "setupID" linetext ))
+	    (setq stringpos (vl-string-search "setupID=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 9)))
             (setq setupids (strcat "IS-" (substr linetext (+ stringpos 10) (-(- wwpos 1)(+ stringpos 8)))))
 	    (setq remlist (member setupids islist))
 	    (setq setupid (cadr remlist))
 
-	    (setq stringpos (vl-string-search "targetSetupID" linetext ))
+	    (setq stringpos (vl-string-search "targetSetupID=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 15)))
             (setq targetid (strcat "IS-" (substr linetext (+ stringpos 16) (-(- wwpos 1)(+ stringpos 14)))))
 	    (setq remlist (member targetid islist))
 	    (setq targetid (cadr remlist))
 
-	    (setq stringpos (vl-string-search "chordAzimuth" linetext ))
+	    (setq stringpos (vl-string-search "chordAzimuth=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 14)))
             (setq bearing (substr linetext (+ stringpos 15) (-(- wwpos 1)(+ stringpos 13))))
+	    (setq dotpos (vl-string-position 46 bearing));remove trailing seconds zeros
+            (if (and (= (strlen (substr bearing (+ dotpos 2))) 4)(= (substr bearing (+ dotpos 4) 2) "00"))(setq bearing (substr bearing 1 (+ dotpos 3))))
 	    (setq xbearing bearing)
 
-	    (setq stringpos (vl-string-search "length" linetext ))
+	    (setq stringpos (vl-string-search "length=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 8)))
             (setq arclength (substr linetext (+ stringpos 9) (-(- wwpos 1)(+ stringpos 7))))
 	    (setq arclength (rtos (atof arclength)2 3));remove trailing zeros
 
-	    (setq stringpos (vl-string-search "radius" linetext ))
+	    (setq stringpos (vl-string-search "radius=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 8)))
             (setq radius (substr linetext (+ stringpos 9) (-(- wwpos 1)(+ stringpos 7))))
 	    
 
-	    (setq stringpos (vl-string-search "rot" linetext ))
+	    (setq stringpos (vl-string-search "rot=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 5)))
             (setq curverot (substr linetext (+ stringpos 6) (-(- wwpos 1)(+ stringpos 4))))
 
 	    
-	    (if (/= (setq stringpos (vl-string-search "arcType" linetext )) nil)(progn
+	    (if (/= (setq stringpos (vl-string-search "arcType=" linetext )) nil)(progn
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 9)))
             (setq arcType (strcat " arcType=\"" (substr linetext (+ stringpos 10) (-(- wwpos 1)(+ stringpos 8))) "\" ")))(setq arcType ""))
 
@@ -15943,11 +17477,11 @@
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 13)))
             (setq azimuthtype (strcat " azimuthType=\"" (substr linetext (+ stringpos 14) (-(- wwpos 1)(+ stringpos 12))) "\" ")))(setq azimuthtype ""))
 
-	    (if (setq stringpos (vl-string-search "angleAccClass" linetext ))(progn
+	    (if (setq stringpos (vl-string-search "angleAccClass=" linetext ))(progn
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 15)))
             (setq sdb (substr linetext (+ stringpos 16) (-(- wwpos 1)(+ stringpos 14)))))(setq sdb ""))
 
-	    (if (setq stringpos (vl-string-search "distanceAccClass" linetext ))(progn
+	    (if (setq stringpos (vl-string-search "distanceAccClass=" linetext ))(progn
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 18)))
             (setq sdd (substr linetext (+ stringpos 19) (-(- wwpos 1)(+ stringpos 17)))))(setq sdd ""))
 		  
@@ -16106,17 +17640,17 @@
 	      
 	      
 
-	    (setq stringpos (vl-string-search "setupID" linetext ))
+	    (setq stringpos (vl-string-search "setupID=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 9)))
             (setq setupids (strcat "IS-" (substr linetext (+ stringpos 10) (-(- wwpos 1)(+ stringpos 8)))))
 	    (setq remlist (member setupids islist))
 	    (setq setupid (cadr remlist))
 
-	    (setq stringpos (vl-string-search "latitude" linetext ))
+	    (setq stringpos (vl-string-search "latitude=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 10)))
             (setq latitude (substr linetext (+ stringpos 11) (-(- wwpos 1)(+ stringpos 9))))
 
-	    (setq stringpos (vl-string-search "longitude" linetext ))
+	    (setq stringpos (vl-string-search "longitude=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 11)))
             (setq longitude (substr linetext (+ stringpos 12) (-(- wwpos 1)(+ stringpos 10))))
 
@@ -16124,37 +17658,37 @@
 	    ;(setq wwpos (vl-string-position 34 linetext (+ stringpos 7)))
             ;(setq class (substr linetext (+ stringpos 8) (-(- wwpos 1)(+ stringpos 6))))
 	    
-	    (if (setq stringpos (vl-string-search "order" linetext )) (progn
+	    (if (setq stringpos (vl-string-search "order=" linetext )) (progn
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 7)))
             (setq order (substr linetext (+ stringpos 8) (-(- wwpos 1)(+ stringpos 6)))))(setq order ""))
 
-	    (if (/= (setq stringpos (vl-string-search "currencyDate" linetext )) nil)(progn
+	    (if (/= (setq stringpos (vl-string-search "currencyDate=" linetext )) nil)(progn
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 14)))
             (setq currencydate (substr linetext (+ stringpos 15) (-(- wwpos 1)(+ stringpos 13)))))(setq currencydate ""))
 
-  	    (if (setq stringpos (vl-string-search "horizontalFix" linetext ))(progn
+  	    (if (setq stringpos (vl-string-search "horizontalFix=" linetext ))(progn
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 15)))
             (setq horizontalFix (substr linetext (+ stringpos 16) (-(- wwpos 1)(+ stringpos 14)))))(setq horizontalfix ""))
 
-   	    (if (setq stringpos (vl-string-search "horizontalDatum" linetext ))(progn
+   	    (if (setq stringpos (vl-string-search "horizontalDatum=" linetext ))(progn
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 17)))
             (setq horizontalDatum (substr linetext (+ stringpos 18) (-(- wwpos 1)(+ stringpos 16)))))(setq horizontalDatum ""))
 
 	    ;VIC
-	    (if (setq stringpos (vl-string-search "oID" linetext ))(progn
+	    (if (setq stringpos (vl-string-search "oID=" linetext ))(progn
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 5)))
             (setq oid (substr linetext (+ stringpos 6) (-(- wwpos 1)(+ stringpos 4)))))(setq oid ""))
 
-	    (if (setq stringpos (vl-string-search "desc" linetext ))(progn
+	    (if (setq stringpos (vl-string-search "desc=" linetext ))(progn
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 6)))
             (setq desc (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))(setq desc ""))
 	    (setq pmnum desc)
 
-	    (if (setq stringpos (vl-string-search "date" linetext ))(progn
+	    (if (setq stringpos (vl-string-search "date=" linetext ))(progn
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 6)))
             (setq date (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))(setq date ""))
 
-	    (if (setq stringpos (vl-string-search "horizontalAdjustment" linetext ))(progn
+	    (if (setq stringpos (vl-string-search "horizontalAdjustment=" linetext ))(progn
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 22)))
             (setq horizontalAdjustment (substr linetext (+ stringpos 23) (-(- wwpos 1)(+ stringpos 21)))))(setq horizontaladjustment ""))
 
@@ -16250,24 +17784,24 @@
 	    (setq remainlist (member setupid rmlist))
 	    (setq monline (cadr remainlist))
 		   
-(if (/= (setq stringpos (vl-string-search "type" monline )) nil)(progn
+(if (/= (setq stringpos (vl-string-search "type=" monline )) nil)(progn
 (setq stringpos (vl-string-search "type" monline ))(setq wwpos (vl-string-position 34 monline (+ stringpos 6)))(setq rmtype (substr monline (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5))))
 (if (/= (setq stringpos (vl-string-search "&amp;" rmtype )) nil) (setq rmtype (vl-string-subst "&" "&amp;" rmtype))))(setq rmtype ""))
 	    
 	     (if (/= (setq stringpos (vl-string-search "state" monline )) nil)(progn
 (setq wwpos (vl-string-position 34 monline (+ stringpos 7)))(setq rmstate (substr monline (+ stringpos 8) (-(- wwpos 1)(+ stringpos 6)))))(setq rmstate ""))
 	    
-(if (/= (setq stringpos (vl-string-search "condition" monline )) nil)(progn
+(if (/= (setq stringpos (vl-string-search "condition=" monline )) nil)(progn
 (setq wwpos (vl-string-position 34 monline (+ stringpos 11)))(setq rmcondition (substr monline (+ stringpos 12) (-(- wwpos 1)(+ stringpos 10)))))(setq rmcondition ""))
 
 
-	    (if (/= (setq stringpos (vl-string-search "desc" monline )) nil)(progn
+	    (if (/= (setq stringpos (vl-string-search "desc=" monline )) nil)(progn
 (setq wwpos (vl-string-position 34 monline (+ stringpos 6)))(setq rmcomment (substr monline (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))(setq rmcomment ""))
 (setq &pos 0)
 	      (while (/=  (setq &pos (vl-string-search "&amp;" rmcomment &pos )) nil) (setq rmcomment (vl-string-subst "&" "&amp;"  rmcomment &pos)
 										      &pos (+ &pos 1)))
 
-(if (/= (setq stringpos (vl-string-search "originSurvey" monline )) nil)(progn
+(if (/= (setq stringpos (vl-string-search "originSurvey=" monline )) nil)(progn
 (setq wwpos (vl-string-position 34 monline (+ stringpos 14)))(setq rmrefdp (substr monline (+ stringpos 15) (-(- wwpos 1)(+ stringpos 13)))))(setq rmrefdp ""))
 
 
@@ -16438,7 +17972,7 @@
 
 	     ;NSW(IF (= pmstate "Found")  (SETQ PMNUMS (STRCAT PMNUM " FD")))
   (IF (= rmstate "Placed")  (SETQ PMNUMS (STRCAT PMNUM " PL"))(SETQ PMNUMS PMNUM))
-		 (COMMAND "TEXT" "J" "BL"  TEXTPOS (* TH 1.4) "90" PMNUMS)
+		 ;(COMMAND "TEXT" "J" "BL"  TEXTPOS (* TH 1.4) "90" PMNUMS)
  
   ;NSW(IF (and (/= pmclass "U") (= pmsource "SCIMS" ))(COMMAND "TEXT" "J" "BL"  TEXTPOS (* TH 1.4) "90" "(EST)"))
  
@@ -16474,18 +18008,18 @@
   (setq mon (nth count occlist))
   (setq pnum (nth (- count 1) occlist))
   ;get type
-  (setq stringpos (vl-string-search "type" mon ))
+  (setq stringpos (vl-string-search "type=" mon ))
 	    (setq wwpos (vl-string-position 34 mon (+ stringpos 6)))
             (setq rmtype (substr mon (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5))))
 ;get state if it exists
-  (if (/= (setq stringpos (vl-string-search "state" mon )) nil)(progn
+  (if (/= (setq stringpos (vl-string-search "state=" mon )) nil)(progn
 (setq wwpos (vl-string-position 34 mon (+ stringpos 7)))(setq rmstate (substr mon (+ stringpos 8) (-(- wwpos 1)(+ stringpos 6)))))(setq rmstate ""))
   ;get condition
-  (if (/= (setq stringpos (vl-string-search "condition" monline )) nil)(progn
+  (if (/= (setq stringpos (vl-string-search "condition=" monline )) nil)(progn
 (setq wwpos (vl-string-position 34 monline (+ stringpos 11)))(setq rmcondition (substr monline (+ stringpos 12) (-(- wwpos 1)(+ stringpos 10)))))(setq rmcondition ""))
   
 ;get redef
- (if (/= (setq stringpos (vl-string-search "originSurvey" mon )) nil)(progn
+ (if (/= (setq stringpos (vl-string-search "originSurvey=" mon )) nil)(progn
 (setq wwpos (vl-string-position 34 mon (+ stringpos 14)))(setq rmrefdp (substr mon (+ stringpos 15) (-(- wwpos 1)(+ stringpos 13))))
    (setq &pos 0)
 	      (while (/=  (setq &pos (vl-string-search "&amp;" rmrefdp &pos )) nil) (setq rmrefdp (vl-string-subst "&" "&amp;"  rmrefdp &pos)
@@ -16495,7 +18029,7 @@
    (setq rmrefdp ""))
 
 			       ;get description
-  (if (/= (setq stringpos (vl-string-search "desc" mon )) nil);if desc exists
+  (if (/= (setq stringpos (vl-string-search "desc=" mon )) nil);if desc exists
     (progn
 			        (setq wwpos (vl-string-position 34 mon (+ stringpos 6)))
             (setq rmdesc (substr mon (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5))))
@@ -16759,24 +18293,24 @@
 												  
 (setq monline (cadr remmonlist))
 
- (if (/= (setq stringpos (vl-string-search "type" monline )) nil)(progn
-(setq stringpos (vl-string-search "type" monline ))(setq wwpos (vl-string-position 34 monline (+ stringpos 6)))(setq rmtype (substr monline (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5))))
+ (if (/= (setq stringpos (vl-string-search "type=" monline )) nil)(progn
+(setq stringpos (vl-string-search "type=" monline ))(setq wwpos (vl-string-position 34 monline (+ stringpos 6)))(setq rmtype (substr monline (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5))))
 (if (/= (setq stringpos (vl-string-search "&amp;" rmtype )) nil) (setq rmtype (vl-string-subst "&" "&amp;" rmtype)))
 )(setq rmtype ""))
 
     (if (= (member lp1c pmcolist) nil) (progn
     
- (if (/= (setq stringpos (vl-string-search "state" monline )) nil)(progn
+ (if (/= (setq stringpos (vl-string-search "state=" monline )) nil)(progn
 (setq wwpos (vl-string-position 34 monline (+ stringpos 7)))(setq rmstate (substr monline (+ stringpos 8) (-(- wwpos 1)(+ stringpos 6)))))(setq rmstate ""))
-(if (/= (setq stringpos (vl-string-search "condition" monline )) nil)(progn
+(if (/= (setq stringpos (vl-string-search "condition=" monline )) nil)(progn
 (setq wwpos (vl-string-position 34 monline (+ stringpos 11)))(setq rmcondition (substr monline (+ stringpos 12) (-(- wwpos 1)(+ stringpos 10)))))(setq rmcondition ""))
-(if (/= (setq stringpos (vl-string-search "desc" monline )) nil)(progn
+(if (/= (setq stringpos (vl-string-search "desc=" monline )) nil)(progn
 (setq wwpos (vl-string-position 34 monline (+ stringpos 6)))(setq rmcomment (substr monline (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))(setq rmcomment ""))
 (setq &pos 0)
 	      (while (/=  (setq &pos (vl-string-search "&amp;" rmcomment &pos )) nil) (setq rmcomment (vl-string-subst "&" "&amp;"  rmcomment &pos)
 										      &pos (+ &pos 1)))
 
-(if (/= (setq stringpos (vl-string-search "originSurvey" monline )) nil)(progn
+(if (/= (setq stringpos (vl-string-search "originSurvey=" monline )) nil)(progn
 (setq wwpos (vl-string-position 34 monline (+ stringpos 14)))(setq rmrefdp (substr monline (+ stringpos 15) (-(- wwpos 1)(+ stringpos 13)))))(setq rmrefdp ""))
 
 
@@ -16889,6 +18423,7 @@
   (setq flowarrows "")
   (setq annolist "")
   (setq Roadcount 1)
+  (setq easecountb 1)  
   (setq Easecounta 1)
     (setq annocount 1)
     (setq easelinklist (list))
@@ -17019,6 +18554,21 @@
        );&if
 
     (setq rocount (+ rocount 1))
+    (if (= (vl-string-search "azimuthType=" xdatai) nil)(setq xdatai (strcat "azimuthType=\"Measured\" " xdatai )));adding azmithTye even though it is optional!!!
+    (if (= (vl-string-search "distanceType=" xdatai) nil)(setq xdatai (strcat "distanceType=\"Measured\" " xdatai )));adding azmithTye even though it is optional!!!
+    ;add trailing zeros in direct confict with sruvey practice handbook
+   (setq stringpos (vl-string-search "azimuth=" xdatai ))
+	    (setq wwpos (vl-string-position 34 xdatai (+ stringpos 9)))
+            (setq bearing (substr xdatai (+ stringpos 10) (-(- wwpos 1)(+ stringpos 8))))
+    (setq newbearing "")
+    (setq dotpos (vl-string-position 46 bearing))
+    (if (= dotpos nil)(setq newbearing (strcat bearing ".0000")))
+    (if (= (strlen (substr bearing (+ dotpos 2))) 2)(setq newbearing (strcat bearing "00")))
+    (if (/= newbearing "")(progn
+      (setq xdatai (vl-string-subst (strcat "azimuth=\"" newbearing "\"")(strcat "azimuth=\"" bearing "\"") xdatai ))
+      (princ (strcat "azimuth=\"" bearing "\""))
+      (princ xdatai)
+      ))
     (setq roline (strcat "<ReducedObservation name=\"OBS-" (rtos rocount 2 0) "\" purpose=\"normal\" setupID=\"IS-" is1 "\" targetSetupID=\"IS-" is2 "\" " xdatai))
     (setq rolist (append rolist (list roline)))
     (setq obslist (append obslist (list (strcat is1 "-" is2))(list ( strcat is2 "-" is1))))
@@ -17096,7 +18646,7 @@
       (setq is2 (nth 3 remlist))
        );&if
 
-     (if (/= (setq stringpos (vl-string-search "rot" xdatai )) nil)(progn
+     (if (/= (setq stringpos (vl-string-search "rot=" xdatai )) nil)(progn
 (setq wwpos (vl-string-position 34 xdatai (+ stringpos 5)))(setq rot (substr xdatai (+ stringpos 6) (-(- wwpos 1)(+ stringpos 4))))))
 
     (if (= rot "cw")(progn
@@ -17108,6 +18658,16 @@
       
 
     (setq rocount (+ rocount 1))
+    (if (= (vl-string-search "arcType=" xdatai) nil)(setq xdatai (strcat "arcType=\"Measured\" " xdatai )))
+     ;add trailing zeros in direct confict with sruvey practice handbook
+       (setq stringpos (vl-string-search "chordAzimuth=" xdatai ))
+	    (setq wwpos (vl-string-position 34 xdatai (+ stringpos 14)))
+            (setq bearing (substr xdatai (+ stringpos 15) (-(- wwpos 1)(+ stringpos 13))))
+    (setq newbearing "")
+    (setq dotpos (vl-string-position 46 bearing))
+    (if (= dotpos nil)(setq newbearing (strcat bearing ".0000")))
+    (if (= (strlen (substr bearing (+ dotpos 2))) 2)(setq newbearing (strcat bearing "00")))
+    (if (/= newbearing "")(setq xdatai (vl-string-subst (strcat "chordAzimuth=\"" newbearing "\"")(strcat "chordAzimuth=\"" bearing "\"") xdatai )))
     (setq roline (strcat "<ReducedArcObservation name=\"AOBS-" (rtos rocount 2 0) "\" purpose=\"normal\" setupID=\"IS-" is1 "\" targetSetupID=\"IS-" is2 "\" " xdatai))
     (setq rolist (append rolist (list roline)))
     (setq obslist (append obslist (list (strcat is1 "-" is2))(list ( strcat is2 "-" is1))))
@@ -17169,6 +18729,17 @@
        );&if
 
     (setq rocount (+ rocount 1))
+    (if (= (vl-string-search "azimuthType=" xdatai) nil)(setq xdatai (strcat "azimuthType=\"Measured\" " xdatai )))
+    (if (= (vl-string-search "distanceType=" xdatai) nil)(setq xdatai (strcat "distanceType=\"Measured\" " xdatai )))
+    ;add trailing zeros in direct confict with sruvey practice handbook
+   (setq stringpos (vl-string-search "azimuth=" xdatai ))
+	    (setq wwpos (vl-string-position 34 xdatai (+ stringpos 9)))
+            (setq bearing (substr xdatai (+ stringpos 10) (-(- wwpos 1)(+ stringpos 8))))
+    (setq newbearing "")
+    (setq dotpos (vl-string-position 46 bearing))
+    (if (= dotpos nil)(setq newbearing (strcat bearing ".0000")))
+    (if (= (strlen (substr bearing (+ dotpos 2))) 2)(setq newbearing (strcat bearing "00")))
+    (if (/= newbearing "")(setq xdatai (vl-string-subst (strcat "azimuth=\"" newbearing "\"")(strcat "azimuth=\"" bearing "\"") xdatai )))
     (setq roline (strcat "<ReducedObservation name=\"OBS-" (rtos rocount 2 0) "\" purpose=\"normal\" setupID=\"IS-" is1 "\" targetSetupID=\"IS-" is2 "\" " xdatai))
     (setq rolist (append rolist (list roline)))
     (setq obslist (append obslist (list (strcat is1 "-" is2))(list ( strcat is2 "-" is1))))
@@ -17245,7 +18816,7 @@
       (setq is2 (nth 3 remlist))
        );&if
 
-     (if (/= (setq stringpos (vl-string-search "rot" xdatai )) nil)(progn
+     (if (/= (setq stringpos (vl-string-search "rot=" xdatai )) nil)(progn
 (setq wwpos (vl-string-position 34 xdatai (+ stringpos 5)))(setq rot (substr xdatai (+ stringpos 6) (-(- wwpos 1)(+ stringpos 4))))))
 
     (if (= rot "cw")(progn
@@ -17257,6 +18828,16 @@
       
 
     (setq rocount (+ rocount 1))
+    (if (= (vl-string-search "arcType=" xdatai) nil)(setq xdatai (strcat "arcType=\"Measured\" " xdatai )))
+         ;add trailing zeros in direct confict with sruvey practice handbook
+       (setq stringpos (vl-string-search "chordAzimuth=" xdatai ))
+	    (setq wwpos (vl-string-position 34 xdatai (+ stringpos 14)))
+            (setq bearing (substr xdatai (+ stringpos 15) (-(- wwpos 1)(+ stringpos 13))))
+    (setq newbearing "")
+    (setq dotpos (vl-string-position 46 bearing))
+    (if (= dotpos nil)(setq newbearing (strcat bearing ".0000")))
+    (if (= (strlen (substr bearing (+ dotpos 2))) 2)(setq newbearing (strcat bearing "00")))
+    (if (/= newbearing "")(setq xdatai (vl-string-subst (strcat "chordAzimuth=\"" newbearing "\"")(strcat "chordAzimuth=\"" bearing "\"") xdatai )))
     (setq roline (strcat "<ReducedArcObservation name=\"AOBS-" (rtos rocount 2 0) "\" purpose=\"normal\" setupID=\"IS-" is1 "\" targetSetupID=\"IS-" is2 "\" " xdatai))
     (setq rolist (append rolist (list roline)))
     (setq obslist (append obslist (list (strcat is1 "-" is2))(list ( strcat is2 "-" is1))))
@@ -17268,6 +18849,173 @@
   (PRINC "\nNo Boundary Arcs found in Project")
   );if
 
+
+
+  
+
+    ;1a.get building lines
+    (princ "\nProcessing Building Observation Lines ")
+ 
+(IF (/= (setq bdyline (ssget "_X" '((0 . "LINE") (8 . "BuildingBoundary")))) nil)(progn 
+  (setq count 0)
+  (princ (strcat "\n" (rtos (sslength bdyline) 2 0 ) "bdy lines found in projet"))
+  (repeat (sslength bdyline)
+  (SETQ P1 (CDR(ASSOC 10 (ENTGET (SSNAME bdyline COUNT)))))
+  (SETQ P2 (CDR(ASSOC 11 (ENTGET (SSNAME bdyline COUNT)))))
+  (SETQ EN (CDR(ASSOC -1 (ENTGET (SSNAME bdyline COUNT)))))
+
+    	    (SETQ XDATAI (ENTGET EN '("LANDXML")))
+	   (IF (= (SETQ XDATAI (ASSOC -3 XDATAI)) NIL) (progn
+	      	     (COMMAND "CHANGE" en "" "P" "C" "6" "")
+	      (princ (strcat "\nBuilding Obs Line with no XML data at " (rtos (car p1) 2 3) "," (rtos (cadr p1)2 3)))
+	     ))
+	    (SETQ XDATAI (NTH 1 XDATAI))
+	    (SETQ XDATAI (CDR (NTH 1 XDATAI)))
+       (setq &pos 0)
+	      (while (/=  (setq &pos (vl-string-search "&" xdatai &pos )) nil) (setq xdatai (vl-string-subst "&amp;" "&"  xdatai &pos)
+										      &pos (+ &pos 4)))
+
+    (setq p1s (strcat (rtos (cadr p1) 2 4) " " (rtos (car p1) 2 4)))
+    (setq p2s (strcat (rtos (cadr p2) 2 4) " " (rtos (car p2) 2 4)))
+
+    (if (= (setq remlist(member p1s cgpl)) nil)(progn
+				   (setq pcount (+ pcount 1))
+				   (setq is1 (rtos pcount 2 0))
+				   (setq cgpl (append cgpl (list p1s)(list "boundary")(list "proposed")(list (rtos pcount 2 0))))
+				   );p
+;else
+      (setq is1 (nth 3 remlist))
+       );&if
+				   
+     (if (= (setq remlist(member p2s cgpl)) nil)(progn
+				   (setq pcount (+ pcount 1))
+				   (setq is2 (rtos pcount 2 0))
+				   (setq cgpl (append cgpl (list p2s)(list "boundary")(list "proposed")(list (rtos pcount 2 0))))
+				   );p
+;else
+      (setq is2 (nth 3 remlist))
+       );&if
+
+    (setq rocount (+ rocount 1))
+    (if (= (vl-string-search "azimuthType=" xdatai) nil)(setq xdatai (strcat "azimuthType=\"Measured\" " xdatai )))
+    (if (= (vl-string-search "distanceType=" xdatai) nil)(setq xdatai (strcat "distanceType=\"Measured\" " xdatai )))
+    ;add trailing zeros in direct confict with sruvey practice handbook
+   (setq stringpos (vl-string-search "azimuth=" xdatai ))
+	    (setq wwpos (vl-string-position 34 xdatai (+ stringpos 9)))
+            (setq bearing (substr xdatai (+ stringpos 10) (-(- wwpos 1)(+ stringpos 8))))
+    (setq newbearing "")
+    (setq dotpos (vl-string-position 46 bearing))
+    (if (= dotpos nil)(setq newbearing (strcat bearing ".0000")))
+    (if (= (strlen (substr bearing (+ dotpos 2))) 2)(setq newbearing (strcat bearing "00")))
+    (if (/= newbearing "")(setq xdatai (vl-string-subst (strcat "azimuth=\"" newbearing "\"")(strcat "azimuth=\"" bearing "\"") xdatai )))
+    (setq roline (strcat "<ReducedObservation name=\"OBS-" (rtos rocount 2 0) "\" purpose=\"buildingBoundary\" setupID=\"IS-" is1 "\" targetSetupID=\"IS-" is2 "\" " xdatai))
+    (setq rolist (append rolist (list roline)))
+    (setq obslist (append obslist (list (strcat is1 "-" is2))(list ( strcat is2 "-" is1))))
+    (setq islist (append islist (list is1 is2)))
+    (setq count (+ count 1))
+    );r
+  );p
+  (PRINC "\nNo Building Observation Lines found in Project")
+  );if
+
+;2.get boundary arcs
+  (princ "\nProcessing Building Observation Arcs ")
+(IF (/= (setq bdyline (ssget "_X" '((0 . "ARC") (8 . "BuildingBoundary")))) nil)(progn 
+ 
+
+    (setq count 0)
+  (repeat (sslength bdyline)
+
+
+(SETQ CP (CDR(ASSOC 10 (ENTGET (SSNAME bdyline COUNT)))))
+  (SETQ RADIUS (CDR(ASSOC 40 (ENTGET (SSNAME bdyline COUNT)))))
+  (SETQ ANG1 (CDR(ASSOC 50 (ENTGET (SSNAME bdyline COUNT)))))
+  (SETQ ANG2 (CDR(ASSOC 51 (ENTGET (SSNAME bdyline COUNT)))))
+
+  (SETQ P1 (POLAR CP ANG1 RADIUS))
+  (SETQ P2 (POLAR CP ANG2 RADIUS))
+    ;get xdata
+    (SETQ EN (CDR(ASSOC -1 (ENTGET (SSNAME bdyline COUNT)))))
+
+    	    (SETQ XDATAI (ENTGET EN '("LANDXML")))
+	    (IF (= (SETQ XDATAI (ASSOC -3 XDATAI)) NIL) (progn
+	      	     (COMMAND "CHANGE" en "" "P" "C" "6" "")
+	      (princ (strcat "\nERROR Building Arc with no XML data at " (rtos (car p1) 2 3) "," (rtos (cadr p1)2 3)))
+	     ))
+	    (SETQ XDATAI (NTH 1 XDATAI))
+	    (SETQ XDATAI (CDR (NTH 1 XDATAI)))
+       (setq &pos 0)
+	      (while (/=  (setq &pos (vl-string-search "&" xdatai &pos )) nil) (setq xdatai (vl-string-subst "&amp;" "&"  xdatai &pos)
+										      &pos (+ &pos 4)))
+
+ 
+    (setq p1s (strcat (rtos (cadr p1) 2 4) " " (rtos (car p1) 2 4)))
+    (setq p2s (strcat (rtos (cadr p2) 2 4) " " (rtos (car p2) 2 4)))
+    (setq cps (strcat (rtos (cadr cp) 2 4) " " (rtos (car cp) 2 4)))
+
+;centre of arc
+   (if (= (setq remlist (member cps cgpl)) nil)
+      (progn
+	(setq pcount (+ pcount 1))
+	(setq cpn (rtos pcount 2 0))
+	(setq cgpl (append cgpl (list cps)(list "sideshot")(list "proposed")(list (rtos pcount 2 0))))
+
+	)
+      (setq cpn (nth 3 remlist))
+     )
+  
+    (setq count (+ count 1))
+
+    (if (= (setq remlist(member p1s cgpl)) nil)(progn
+				   (setq pcount (+ pcount 1))
+				   (setq is1 (rtos pcount 2 0))
+				   (setq cgpl (append cgpl (list p1s)(list "boundary")(list "proposed")(list (rtos pcount 2 0))))
+				   );p
+;else
+      (setq is1 (nth 3 remlist))
+       );&if
+				   
+     (if (= (setq remlist(member p2s cgpl)) nil)(progn
+				   (setq pcount (+ pcount 1))
+				   (setq is2 (rtos pcount 2 0))
+				   (setq cgpl (append cgpl (list p2s)(list "boundary")(list "proposed")(list (rtos pcount 2 0))))
+				   );p
+;else
+      (setq is2 (nth 3 remlist))
+       );&if
+
+     (if (/= (setq stringpos (vl-string-search "rot=" xdatai )) nil)(progn
+(setq wwpos (vl-string-position 34 xdatai (+ stringpos 5)))(setq rot (substr xdatai (+ stringpos 6) (-(- wwpos 1)(+ stringpos 4))))))
+
+    (if (= rot "cw")(progn
+		      (setq is1r is1
+			is1 is2
+			is2 is1r)
+		      
+      ))
+      
+
+    (setq rocount (+ rocount 1))
+    (if (= (vl-string-search "arcType=" xdatai) nil)(setq xdatai (strcat "arcType=\"Measured\" " xdatai )))
+         ;add trailing zeros in direct confict with sruvey practice handbook
+       (setq stringpos (vl-string-search "chordAzimuth=" xdatai ))
+	    (setq wwpos (vl-string-position 34 xdatai (+ stringpos 14)))
+            (setq bearing (substr xdatai (+ stringpos 15) (-(- wwpos 1)(+ stringpos 13))))
+    (setq newbearing "")
+    (setq dotpos (vl-string-position 46 bearing))
+    (if (= dotpos nil)(setq newbearing (strcat bearing ".0000")))
+    (if (= (strlen (substr bearing (+ dotpos 2))) 2)(setq newbearing (strcat bearing "00")))
+    (if (/= newbearing "")(setq xdatai (vl-string-subst (strcat "chordAzimuth=\"" newbearing "\"")(strcat "chordAzimuth=\"" bearing "\"") xdatai )))
+    (setq roline (strcat "<ReducedArcObservation name=\"AOBS-" (rtos rocount 2 0) "\" purpose=\"buildingBoundary\" setupID=\"IS-" is1 "\" targetSetupID=\"IS-" is2 "\" " xdatai))
+    (setq rolist (append rolist (list roline)))
+    (setq obslist (append obslist (list (strcat is1 "-" is2))(list ( strcat is2 "-" is1))))
+    (setq islist (append islist (list is1 is2)))
+    (setq arclist (append arclist (list (strcat is1 "-" is2))(list cpn) (list (strcat is2 "-" is1))(list cpn)))
+    
+    );r
+    );p
+  (PRINC "\nNo Building Observation Arcs found in Project")
+  );if
 
 
 
@@ -17544,6 +19292,17 @@
        );&if
 
     (setq rocount (+ rocount 1))
+    (if (= (vl-string-search "azimuthType=" xdatai) nil)(setq xdatai (strcat "azimuthType=\"Measured\" " xdatai )))
+    (if (= (vl-string-search "distanceType=" xdatai) nil)(setq xdatai (strcat "distanceType=\"Measured\" " xdatai )))
+    ;add trailing zeros in direct confict with sruvey practice handbook
+   (setq stringpos (vl-string-search "azimuth=" xdatai ))
+	    (setq wwpos (vl-string-position 34 xdatai (+ stringpos 9)))
+            (setq bearing (substr xdatai (+ stringpos 10) (-(- wwpos 1)(+ stringpos 8))))
+    (setq newbearing "")
+    (setq dotpos (vl-string-position 46 bearing))
+    (if (= dotpos nil)(setq newbearing (strcat bearing ".0000")))
+    (if (= (strlen (substr bearing (+ dotpos 2))) 2)(setq newbearing (strcat bearing "00")))
+    (if (/= newbearing "")(setq xdatai (vl-string-subst (strcat "azimuth=\"" newbearing "\"")(strcat "azimuth=\"" bearing "\"") xdatai )))
     (setq roline (strcat "<ReducedObservation name=\"OBS-" (rtos rocount 2 0) "\" purpose=\"topo\" setupID=\"IS-" is1 "\" targetSetupID=\"IS-" is2 "\" " xdatai));changed version 8 of schema was boundary
     (setq rolist (append rolist (list roline)))
     (setq obslist (append obslist (list (strcat is1 "-" is2))(list ( strcat is2 "-" is1))))
@@ -17583,7 +19342,7 @@
 (if (= (substr xdatai 1 4) "desc")(progn
 
 				    ;Check for easement or road lots note an imported road lot will not have "desc" as the first four letters and not need assignment as below
-    (if (/= (setq stringpos (vl-string-search "class" xdatai )) nil)(progn
+    (if (/= (setq stringpos (vl-string-search "class=" xdatai )) nil)(progn
 (setq wwpos (vl-string-position 34 xdatai (+ stringpos 7)))(setq lotclass (substr xdatai (+ stringpos 8) (-(- wwpos 1)(+ stringpos 6)))))(setq lotclass ""))
     (if (= lotclass "Road")(progn
 			     (setq xdatai (strcat "  <Parcel name=\"ROAD-" (rtos roadcount 2 0) "\" " xdatai))
@@ -17598,7 +19357,7 @@
     ));p& if desc
 
     ;check for mutliplart lot
-     (if (/= (setq stringpos (vl-string-search "name" xdatai )) nil)(progn
+     (if (/= (setq stringpos (vl-string-search "name=" xdatai )) nil)(progn
 (setq wwpos (vl-string-position 34 xdatai (+ stringpos 6)))(setq pclname (substr xdatai (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5))))))
 
    ;CHECK FOR MULTIPART LOT REMOVED - SEE ABOVE REV 1.1
@@ -17907,6 +19666,17 @@
        );&if
 
     (setq rocount (+ rocount 1))
+    (if (= (vl-string-search "azimuthType=" xdatai) nil)(setq xdatai (strcat "azimuthType=\"Measured\" " xdatai )))
+    (if (= (vl-string-search "distanceType=" xdatai) nil)(setq xdatai (strcat "distanceType=\"Measured\" " xdatai )))
+    ;add trailing zeros in direct confict with sruvey practice handbook
+   (setq stringpos (vl-string-search "azimuth=" xdatai ))
+	    (setq wwpos (vl-string-position 34 xdatai (+ stringpos 9)))
+            (setq bearing (substr xdatai (+ stringpos 10) (-(- wwpos 1)(+ stringpos 8))))
+    (setq newbearing "")
+    (setq dotpos (vl-string-position 46 bearing))
+    (if (= dotpos nil)(setq newbearing (strcat bearing ".0000")))
+    (if (= (strlen (substr bearing (+ dotpos 2))) 2)(setq newbearing (strcat bearing "00")))
+    (if (/= newbearing "")(setq xdatai (vl-string-subst (strcat "azimuth=\"" newbearing "\"")(strcat "azimuth=\"" bearing "\"") xdatai )))
     (setq roline (strcat "<ReducedObservation name=\"OBS-" (rtos rocount 2 0) "\" purpose=\"normal\" setupID=\"IS-" is1 "\" targetSetupID=\"IS-" is2 "\" " xdatai))
     (setq rolist (append rolist (list roline)))
     (setq obslist (append obslist (list (strcat is1 "-" is2))(list ( strcat is2 "-" is1))))
@@ -17984,7 +19754,7 @@
       (setq is2 (nth 3 remlist))
        );&if
 
-     (if (/= (setq stringpos (vl-string-search "rot" xdatai )) nil)(progn
+     (if (/= (setq stringpos (vl-string-search "rot=" xdatai )) nil)(progn
 (setq wwpos (vl-string-position 34 xdatai (+ stringpos 5)))(setq rot (substr xdatai (+ stringpos 6) (-(- wwpos 1)(+ stringpos 4))))))
 
     (if (= rot "cw")(progn
@@ -17996,6 +19766,16 @@
       
 
     (setq rocount (+ rocount 1))
+    (if (= (vl-string-search "arcType=" xdatai) nil)(setq xdatai (strcat "arcType=\"Measured\" " xdatai )))
+         ;add trailing zeros in direct confict with sruvey practice handbook
+       (setq stringpos (vl-string-search "chordAzimuth=" xdatai ))
+	    (setq wwpos (vl-string-position 34 xdatai (+ stringpos 14)))
+            (setq bearing (substr xdatai (+ stringpos 15) (-(- wwpos 1)(+ stringpos 13))))
+    (setq newbearing "")
+    (setq dotpos (vl-string-position 46 bearing))
+    (if (= dotpos nil)(setq newbearing (strcat bearing ".0000")))
+    (if (= (strlen (substr bearing (+ dotpos 2))) 2)(setq newbearing (strcat bearing "00")))
+    (if (/= newbearing "")(setq xdatai (vl-string-subst (strcat "chordAzimuth=\"" newbearing "\"")(strcat "chordAzimuth=\"" bearing "\"") xdatai )))
     (setq roline (strcat "<ReducedArcObservation name=\"AOBS-" (rtos rocount 2 0) "\" purpose=\"normal\" setupID=\"IS-" is1 "\" targetSetupID=\"IS-" is2 "\" " xdatai))
     (setq rolist (append rolist (list roline)))
     (setq obslist (append obslist (list (strcat is1 "-" is2))(list ( strcat is2 "-" is1))))
@@ -18031,11 +19811,11 @@
 	      (while (/=  (setq &pos (vl-string-search "&" xdatai &pos )) nil) (setq xdatai (vl-string-subst "&amp;" "&"  xdatai &pos)
 										      &pos (+ &pos 4)))
 
-     (if (/= (setq stringpos (vl-string-search "state" xdatai )) nil)(progn
+     (if (/= (setq stringpos (vl-string-search "state=" xdatai )) nil)(progn
 	(setq wwpos (vl-string-position 34 xdatai (+ stringpos 7)))(setq rmstate (substr xdatai (+ stringpos 8) (-(- wwpos 1)(+ stringpos 6)))))(setq rmstate ""))
 
 
-    (if (/= (setq stringpos (vl-string-search "type" xdatai )) nil)(progn
+    (if (/= (setq stringpos (vl-string-search "type=" xdatai )) nil)(progn
 	(setq wwpos (vl-string-position 34 xdatai (+ stringpos 6)))(setq rmtype (substr xdatai (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))(setq rmtype ""))
 
     
@@ -18105,7 +19885,7 @@
 
      
 
-   (if (/= (setq stringpos (vl-string-search "oID" xdatai )) nil)(progn
+   (if (/= (setq stringpos (vl-string-search "oID=" xdatai )) nil)(progn
 (setq wwpos (vl-string-position 34 xdatai (+ stringpos 5)))(setq pmnum (substr xdatai (+ stringpos 6) (-(- wwpos 1)(+ stringpos 4))))))
  
     (setq p1s (strcat (rtos (cadr p1) 2 4) " " (rtos (car p1) 2 4)))
@@ -18148,14 +19928,16 @@
 
    ;10.get connection lines
   (princ "\nProcessing Connection Lines")
-(IF (/= (setq bdyline (ssget "_X" '((0 . "LINE") (8 . "Topo,Traverse,Sideshot")))) nil)(progn 
+(IF (/= (setq bdyline (ssget "_X" '((0 . "LINE") (8 . "Topo,Traverse,Sideshot,BuildingReturn")))) nil)(progn 
    (setq count 0)
   (repeat (sslength bdyline)
   (SETQ P1 (CDR(ASSOC 10 (ENTGET (SSNAME bdyline COUNT)))))
   (SETQ P2 (CDR(ASSOC 11 (ENTGET (SSNAME bdyline COUNT)))))
   (SETQ EN (CDR(ASSOC -1 (ENTGET (SSNAME bdyline COUNT)))))
   (SETQ LAYER (strcase (CDR(ASSOC 8 (ENTGET (SSNAME bdyline COUNT)))) t))
-    (IF (= LAYER "topo" )(setq pntsurv "sideshot")(setq pntsurv "traverse"))
+    (IF (or (= LAYER "topo" )(= LAYER "buildingreturn"))(setq pntsurv "sideshot")(setq pntsurv "traverse"))
+    (if (= layer "buildingreturn")(setq layer "buildingReturn"))
+    
 
     	    (SETQ XDATAI (ENTGET EN '("LANDXML")))
 	    (IF (= (SETQ XDATAI (ASSOC -3 XDATAI)) NIL) (progn
@@ -18190,6 +19972,17 @@
        );&if
 
     (setq rocount (+ rocount 1))
+    (if (= (vl-string-search "azimuthType=" xdatai) nil)(setq xdatai (strcat "azimuthType=\"Measured\" " xdatai )))
+    (if (= (vl-string-search "distanceType=" xdatai) nil)(setq xdatai (strcat "distanceType=\"Measured\" " xdatai )))
+    ;add trailing zeros in direct confict with sruvey practice handbook
+   (setq stringpos (vl-string-search "azimuth=" xdatai ))
+	    (setq wwpos (vl-string-position 34 xdatai (+ stringpos 9)))
+            (setq bearing (substr xdatai (+ stringpos 10) (-(- wwpos 1)(+ stringpos 8))))
+    (setq newbearing "")
+    (setq dotpos (vl-string-position 46 bearing))
+    (if (= dotpos nil)(setq newbearing (strcat bearing ".0000")))
+    (if (= (strlen (substr bearing (+ dotpos 2))) 2)(setq newbearing (strcat bearing "00")))
+    (if (/= newbearing "")(setq xdatai (vl-string-subst (strcat "azimuth=\"" newbearing "\"")(strcat "azimuth=\"" bearing "\"") xdatai )))
     (setq roline (strcat "<ReducedObservation name=\"OBS-" (rtos rocount 2 0) "\" purpose=\"" LAYER "\" setupID=\"IS-" is1 "\" targetSetupID=\"IS-" is2 "\" " xdatai))
     (setq rolist (append rolist (list roline)))
     (setq islist (append islist (list is1 is2)))
@@ -18204,7 +19997,7 @@
 
 ;11.get Connection arcs
   (princ "\nProcessing Connection Arcs")
-(IF (/= (setq bdyline (ssget "_X" '((0 . "ARC") (8 . "Topo,Traverse,Sideshot")))) nil)(progn 
+(IF (/= (setq bdyline (ssget "_X" '((0 . "ARC") (8 . "Topo,Traverse,Sideshot,BuildingReturn")))) nil)(progn 
    (setq count 0)
   (repeat (sslength bdyline)
 
@@ -18213,8 +20006,10 @@
   (SETQ RADIUS (CDR(ASSOC 40 (ENTGET (SSNAME bdyline COUNT)))))
   (SETQ ANG1 (CDR(ASSOC 50 (ENTGET (SSNAME bdyline COUNT)))))
   (SETQ ANG2 (CDR(ASSOC 51 (ENTGET (SSNAME bdyline COUNT)))))
-(SETQ LAYER  (CDR(ASSOC 8 (ENTGET (SSNAME bdyline COUNT)))) )
-    (IF (= LAYER "Topo" )(setq pntsurv "sideshot")(setq pntsurv "traverse"))
+(SETQ LAYER (strcase (CDR(ASSOC 8 (ENTGET (SSNAME bdyline COUNT)))) t))
+    (IF (or (= LAYER "topo" )(= LAYER "buildingreturn"))(setq pntsurv "sideshot")(setq pntsurv "traverse"))
+    (if (= layer "buildingreturn")(setq layer "buildingReturn"))
+    
     
   (SETQ P1 (POLAR CP ANG1 RADIUS))
   (SETQ P2 (POLAR CP ANG2 RADIUS))
@@ -18265,7 +20060,7 @@
       (setq is2 (nth 3 remlist))
        );&if
 
-     (if (/= (setq stringpos (vl-string-search "rot" xdatai )) nil)(progn
+     (if (/= (setq stringpos (vl-string-search "rot=" xdatai )) nil)(progn
 (setq wwpos (vl-string-position 34 xdatai (+ stringpos 5)))(setq rot (substr xdatai (+ stringpos 6) (-(- wwpos 1)(+ stringpos 4))))))
 
     (if (= rot "cw")(progn
@@ -18277,6 +20072,16 @@
       
 
     (setq rocount (+ rocount 1))
+    (if (= (vl-string-search "arcType=" xdatai) nil)(setq xdatai (strcat "arcType=\"Measured\" " xdatai )))
+         ;add trailing zeros in direct confict with sruvey practice handbook
+       (setq stringpos (vl-string-search "chordAzimuth=" xdatai ))
+	    (setq wwpos (vl-string-position 34 xdatai (+ stringpos 14)))
+            (setq bearing (substr xdatai (+ stringpos 15) (-(- wwpos 1)(+ stringpos 13))))
+    (setq newbearing "")
+    (setq dotpos (vl-string-position 46 bearing))
+    (if (= dotpos nil)(setq newbearing (strcat bearing ".0000")))
+    (if (= (strlen (substr bearing (+ dotpos 2))) 2)(setq newbearing (strcat bearing "00")))
+    (if (/= newbearing "")(setq xdatai (vl-string-subst (strcat "chordAzimuth=\"" newbearing "\"")(strcat "chordAzimuth=\"" bearing "\"") xdatai )))
     (setq roline (strcat "<ReducedArcObservation name=\"ABOS-" (rtos rocount 2 0) "\" purpose=\"" LAYER "\" setupID=\"IS-" is1 "\" targetSetupID=\"IS-" is2 "\" " xdatai))
     (setq rolist (append rolist (list roline)))
     (setq islist (append islist (list is1 is2)))
@@ -18961,8 +20766,8 @@
 		      sybpos (+ sybpos 4)))
 
 		    (setq sybpos 0)
-		    (while (/=  (setq sybpos (vl-string-search "°" txt sybpos )) nil)
-		(setq txt (vl-string-subst "&#176;" "°"  txt sybpos)
+		    (while (/=  (setq sybpos (vl-string-search " " txt sybpos )) nil)
+		(setq txt (vl-string-subst "&#176;" " "  txt sybpos)
 		      sybpos (+ sybpos 5)))
 
 
@@ -18974,7 +20779,7 @@
 		    ;(princ (substr xdatai 1 33 ))
 		    
 		    (if (= (substr xdatai 1 11 ) "<Annotation")(progn
-			(if (AND (/= (substr xdatai 1 33 ) "<Annotation type=\"Easement Width\"" )(vl-string-search "pclRef" xdatai)(= (vl-string-search "\\" xdatai ) nil))(setq xdatai (strcat (substr xdatai 1 (- (strlen xdatai)1)) "\\" plannum "\"")))
+			(if (AND (/= (substr xdatai 1 33 ) "<Annotation type=\"Easement Width\"" )(vl-string-search "pclRef=" xdatai)(= (vl-string-search "\\" xdatai ) nil))(setq xdatai (strcat (substr xdatai 1 (- (strlen xdatai)1)) "\\" plannum "\"")))
 (setq anno (strcat xdatai  " desc=\"" txt "\" name=\"ANNO-" (rtos annocount 2 0) "\" />" (chr 10)))
 			(setq annofront (strcat   xdatai  " desc=\"" txt "\" name=\"ANNO-"))
 			(if (= (vl-string-search annofront annolist) nil)
@@ -19018,12 +20823,12 @@
          (setq &pos 0)
 	      (while (/=  (setq &pos (vl-string-search "&" xdatai &pos )) nil) (setq xdatai (vl-string-subst "&amp;" "&"  xdatai &pos)
 										      &pos (+ &pos 4)))
-(if (/= (setq stringpos (vl-string-search "name" xdatai )) nil)(progn
+(if (/= (setq stringpos (vl-string-search "name=" xdatai )) nil)(progn
 (setq wwpos (vl-string-position 34 xdatai (+ stringpos 6)))(setq pclname (substr xdatai (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5))))))
     
     ;if easement seperate out link parcel
      (if (setq !pos1 (vl-string-position 33 xdatai 0))(progn
-                      (setq easelink (substr xdatai (+ !pos1 2) 200))
+                      (setq easelink (substr xdatai (+ !pos1 2) ))
                       (setq xdatai  (substr xdatai 1 !pos1))
     
 (setq easelinklist (append easelinklist (list (strcat xdatai "!" easelink))))
@@ -19085,17 +20890,17 @@
 	      (while (/=  (setq &pos (vl-string-search "&" xdatai &pos )) nil) (setq xdatai (vl-string-subst "&amp;" "&"  xdatai &pos)
 										      &pos (+ &pos 4)))
     
- (if (/= (setq stringpos (vl-string-search "parcelType" xdatai )) nil)(progn
+ (if (/= (setq stringpos (vl-string-search "parcelType=" xdatai )) nil)(progn
 (setq wwpos (vl-string-position 34 xdatai (+ stringpos 12)))(setq pcltype (substr xdatai (+ stringpos 13) (-(- wwpos 1)(+ stringpos 11))))))
-     (if (/= (setq stringpos (vl-string-search "name" xdatai )) nil)(progn
+     (if (/= (setq stringpos (vl-string-search "name=" xdatai )) nil)(progn
 (setq wwpos (vl-string-position 34 xdatai (+ stringpos 6)))(setq pclname (substr xdatai (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))(setq pclname ""))
-     (if (/= (setq stringpos (vl-string-search "class" xdatai )) nil)(progn
+     (if (/= (setq stringpos (vl-string-search "class=" xdatai )) nil)(progn
 (setq wwpos (vl-string-position 34 xdatai (+ stringpos 7)))(setq pclclass (substr xdatai (+ stringpos 8) (-(- wwpos 1)(+ stringpos 6)))))(setq lotclass ""))
-(if (/= (setq stringpos (vl-string-search "state" xdatai )) nil)(progn
+(if (/= (setq stringpos (vl-string-search "state=" xdatai )) nil)(progn
 (setq wwpos (vl-string-position 34 xdatai (+ stringpos 7)))(setq pclstate (substr xdatai (+ stringpos 8) (-(- wwpos 1)(+ stringpos 6)))))(setq pclstate ""))
 (if (and (= (vl-string-search "\\" pclname ) nil)(/= pclclass "Easement")) (setq pclname (strcat pclname "\\" plannum)));add plan name
     
-     (if (/= (setq stringpos (vl-string-search "area" xdatai )) nil)(progn
+     (if (/= (setq stringpos (vl-string-search "area=" xdatai )) nil)(progn
 (setq wwpos (vl-string-position 34 xdatai (+ stringpos 6)))(setq area (substr xdatai (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))(setq area ""))
     
     (if (= pcltype "Part")(setq mplist (append mplist (list (strcat pclname "," area "," pclclass "," pclstate )))))
@@ -19218,9 +21023,9 @@
 (if (= (substr xdatai 1 4) "desc")(progn
 
 				    ;Check for easement or road lots note an imported road lot will not have "desc" as the first four letters and not need assignment as below
-    (if (/= (setq stringpos (vl-string-search "class" xdatai )) nil)(progn
+    (if (/= (setq stringpos (vl-string-search "class=" xdatai )) nil)(progn
 (setq wwpos (vl-string-position 34 xdatai (+ stringpos 7)))(setq lotclass (substr xdatai (+ stringpos 8) (-(- wwpos 1)(+ stringpos 6)))))(setq lotclass ""))
-        (if (/= (setq stringpos (vl-string-search "parcelType" xdatai )) nil)(progn
+        (if (/= (setq stringpos (vl-string-search "parcelType=" xdatai )) nil)(progn
 (setq wwpos (vl-string-position 34 xdatai (+ stringpos 12)))(setq pcltype (substr xdatai (+ stringpos 13) (-(- wwpos 1)(+ stringpos 11)))))(setq pcltype ""))
      (if (= lotclass "Road")(progn
 			      (if (= pclstate "created")(setq xdatai (strcat "  <Parcel name=\"R" (rtos roadcount 2 0) "\"" (nth 0 attlist) " " xdatai)))
@@ -19241,12 +21046,12 @@
    
      
     
-        (if (/= (setq stringpos (vl-string-search "class" xdatai )) nil)(progn
+        (if (/= (setq stringpos (vl-string-search "class=" xdatai )) nil)(progn
 (setq wwpos (vl-string-position 34 xdatai (+ stringpos 7)))(setq pclclass (substr xdatai (+ stringpos 8) (-(- wwpos 1)(+ stringpos 6)))))(setq lotclass ""))
-     (if (/= (setq stringpos (vl-string-search "parcelType" xdatai )) nil)(progn
+     (if (/= (setq stringpos (vl-string-search "parcelType=" xdatai )) nil)(progn
 (setq wwpos (vl-string-position 34 xdatai (+ stringpos 12)))(setq pcltype (substr xdatai (+ stringpos 13) (-(- wwpos 1)(+ stringpos 11)))))(setq pcltype ""))
 
-    (if (/= (setq stringpos (vl-string-search "name" xdatai )) nil)(progn
+    (if (/= (setq stringpos (vl-string-search "name=" xdatai )) nil)(progn
 (setq wwpos (vl-string-position 34 xdatai (+ stringpos 6)))(setq pclname (substr xdatai (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5))))))
     
     (if  (and (/= (substr pclname 1 2) "PC") (= (vl-string-search "\\" pclname ) nil)(/= pclclass "Easement"))
@@ -19271,7 +21076,7 @@
 
           
 ;get pcl state so exsiting lots dont get checked for geometery      
-(if (/= (setq stringpos (vl-string-search "state" xdatai )) nil)(progn
+(if (/= (setq stringpos (vl-string-search "state=" xdatai )) nil)(progn
 (setq wwpos (vl-string-position 34 xdatai (+ stringpos 7)))(setq pclstate (substr xdatai (+ stringpos 8) (-(- wwpos 1)(+ stringpos 6)))))(setq pclstate ""))
 
 
@@ -19307,7 +21112,7 @@
 (setq xdatafront (substr xdatai 1   stringpos1  ))
     (setq xdataback (substr xdatai stringpos2 ))
     (setq title  (substr xdatai (+ stringpos1 1) (- stringpos2 stringpos1 1)))
-     (if (/= (setq stringpos (vl-string-search "name" title )) nil)(progn
+     (if (/= (setq stringpos (vl-string-search "name=" title )) nil)(progn
 (setq wwpos (vl-string-position 34 title (+ stringpos 6)))(setq titlename (substr title (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5))))))
     (if (and (= (vl-string-search "\\" titlename ) nil) (= (vl-string-search "/" titlename ) nil))
       (progn
@@ -19329,7 +21134,7 @@
 
     (if (/= smalladdress "")(progn
 
-			      (setq xdatai (strcat (substr xdatai 1 (- stringpos 1))(substr xdatai (+ wwpos 4))))
+			      (setq xdatai (strcat (substr xdatai 1 (- stringpos 1))(substr xdatai (+ wwpos 4))));remove the small address from xdata
 
 			      
       (setq ,pos1 (vl-string-position 44 smalladdress 0))
@@ -19345,24 +21150,27 @@
       (setq ,pos11 (vl-string-position 44 smalladdress (+ ,pos10 1)))
       (setq ,pos12 (vl-string-position 44 smalladdress (+ ,pos11 1)))
       (setq ,pos13 (vl-string-position 44 smalladdress (+ ,pos12 1)))
+      (setq ,pos14 (vl-string-position 44 smalladdress (+ ,pos13 1)))
 
       (setq flatNumber  (substr smalladdress 1 ,pos1))
       (setq flatType         (substr smalladdress (+ ,pos1 2) (- (- ,pos2 ,pos1) 1)))
-      (setq floorLevelNumber (substr smalladdress (+ ,pos2 2) (- (- ,pos3 ,pos2) 1)))
-      (setq floorLevelType   (substr smalladdress (+ ,pos3 2) (- (- ,pos4 ,pos3) 1)))
-      (setq numberfirst      (substr smalladdress (+ ,pos4 2) (- (- ,pos5 ,pos4) 1)))
-      (setq numberSuffixFirst(substr smalladdress (+ ,pos5 2) (- (- ,pos6 ,pos5) 1)))
-      (setq numberLast       (substr smalladdress (+ ,pos6 2) (- (- ,pos7 ,pos6) 1)))
-      (setq numberSuffixLast (substr smalladdress (+ ,pos7 2) (- (- ,pos8 ,pos7) 1)))
-      (setq roadName         (substr smalladdress (+ ,pos8 2) (- (- ,pos9 ,pos8) 1)))
-      (setq roadnamesuffix   (substr smalladdress (+ ,pos9 2) (- (- ,pos10 ,pos9) 1)))
-      (setq roadnametype     (substr smalladdress (+ ,pos10 2) (- (- ,pos11 ,pos10) 1)))
-      (setq roadtype         (substr smalladdress (+ ,pos11 2) (- (- ,pos12 ,pos11) 1)))
-      (setq adminareaname    (substr smalladdress (+ ,pos12 2) (- (- ,pos13 ,pos12) 1)))
-      (setq adminAreaCode    (substr smalladdress (+ ,pos13 2)))
+      (setq complexname      (substr smalladdress (+ ,pos2 2) (- (- ,pos3 ,pos2) 1)))
+      (setq floorLevelNumber (substr smalladdress (+ ,pos3 2) (- (- ,pos4 ,pos3) 1)))
+      (setq floorLevelType   (substr smalladdress (+ ,pos4 2) (- (- ,pos5 ,pos4) 1)))
+      (setq numberfirst      (substr smalladdress (+ ,pos5 2) (- (- ,pos6 ,pos5) 1)))
+      (setq numberSuffixFirst(substr smalladdress (+ ,pos6 2) (- (- ,pos7 ,pos6) 1)))
+      (setq numberLast       (substr smalladdress (+ ,pos7 2) (- (- ,pos8 ,pos7) 1)))
+      (setq numberSuffixLast (substr smalladdress (+ ,pos8 2) (- (- ,pos9 ,pos8) 1)))
+      (setq roadName         (substr smalladdress (+ ,pos9 2) (- (- ,pos10 ,pos9) 1)))
+      (setq roadnamesuffix   (substr smalladdress (+ ,pos10 2) (- (- ,pos11 ,pos10) 1)))
+      (setq roadnametype     (substr smalladdress (+ ,pos11 2) (- (- ,pos12 ,pos11) 1)))
+      (setq roadtype         (substr smalladdress (+ ,pos12 2) (- (- ,pos13 ,pos12) 1)))
+      (setq adminareaname    (substr smalladdress (+ ,pos13 2) (- (- ,pos14 ,pos13) 1)))
+      (setq adminAreaCode    (substr smalladdress (+ ,pos14 2)))
 
       (if (/= flatnumber "")(setq flatnumber (strcat "flatNumber=\"" flatnumber "\" ")))
       (if (/= flatType "")(setq flatType (strcat "flatType=\"" flatType "\" ")))
+      (if (/= complexname "")(setq complexname (strcat "<ComplexName desc=\"" complexname "\" priority=\"1\" />" (chr 10))))
       (if (/= floorLevelNumber "")(setq floorLevelNumber (strcat "floorLevelNumber=\""floorLevelNumber  "\" ")))
       (if (/= floorLevelType "")(setq floorLevelType (strcat "floorLevelType=\""floorLevelType  "\" ")))
       (if (/= numberfirst "")(setq numberfirst (strcat "numberFirst=\""numberfirst  "\" ")))
@@ -19376,7 +21184,9 @@
       (if (/= adminareaname "")(setq adminareaname (strcat "adminAreaName=\""adminareaname  "\" ")))
       (if (/= adminAreaCode "")(setq adminAreaCode (strcat "adminAreaCode=\""adminAreaCode  "\" ")))
 
+
       (setq largeaddress (strcat "<LocationAddress addressType=\"Primary\" " flatnumber flattype floorlevelnumber floorleveltype numberfirst numbersuffixfirst numberlast numbersuffixlast ">" (chr 10)
+				 complexname
 				 "<RoadName " roadname roadnamesuffix roadnametype roadtype "/>" (chr 10)
 				 "<AdministrativeArea " adminareaname "adminAreaType=\"Locality\" " adminareacode "/>" (chr 10)
 				 "</LocationAddress>"))
@@ -19697,12 +21507,25 @@
    (repeat  (length easelinklist)
   (setq easeinfo (nth count easelinklist))
 
-  (if (/= (setq stringpos (vl-string-search "class" easeinfo )) nil)(progn
+  (if (/= (setq stringpos (vl-string-search "class=" easeinfo )) nil)(progn
 (setq wwpos (vl-string-position 34 easeinfo (+ stringpos 7)))(setq pclclass (substr easeinfo (+ stringpos 8) (-(- wwpos 1)(+ stringpos 6))))))
-   (if (/= (setq stringpos (vl-string-search "name" easeinfo )) nil)(progn
+   (if (/= (setq stringpos (vl-string-search "name=" easeinfo )) nil)(progn
 (setq wwpos (vl-string-position 34 easeinfo (+ stringpos 6)))(setq pclname (substr easeinfo (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5))))))
 
-  ;(if (= (vl-string-search "\\" pclname) nil)(setq easeinfo (vl-string-subst (strcat "name=\"" pclname "\\" plannum)(strcat "name=\"" pclname) easeinfo)))
+     (if (= name (strcase pclname) "THIS PLAN")
+       (progn ;if origin is this plan add easecount and this plan number
+	 (setq easeinfo (vl-string-subst (strcat "name=\"EAS" (RTOS easecountb 2 0) "\\" plannum)(strcat "name=\"" pclname) easeinfo))
+	 (setq easecountb (+ easecountb 1))
+	 )
+       (progn ;if origin is anything other that this plan
+	 (setq easeinfo (vl-string-subst (strcat "name=\"EAS" (RTOS easecountb 2 0) "\\" pclname)(strcat "name=\"" pclname) easeinfo))
+	 (setq easecountb (+ easecountb 1))
+	 )
+       )
+	 
+	       
+     
+  ;(if (= (vl-string-search "\\" pclname) nil)(setq easeinfo (vl-string-subst (strcat "name=\"" pclname "\\" plannum)(strcat "name=\"" pclname) easeinfo)));
 
  
      
@@ -19763,7 +21586,7 @@
 
   (setq parcel (vl-string-subst (strcat " desc=\"" desc "\" >") ">" parcel))
 
-  (if (/= (setq stringpos (vl-string-search "name" parcel )) nil)(progn
+  (if (/= (setq stringpos (vl-string-search "name=" parcel )) nil)(progn
 (setq wwpos (vl-string-position 34 parcel (+ stringpos 6)))(setq pclname (substr parcel (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5))))))
     (if (= (vl-string-search "\\" pclname ) nil)
       (progn
@@ -19820,24 +21643,27 @@
       (setq ,pos11 (vl-string-position 44 smalladdress (+ ,pos10 1)))
       (setq ,pos12 (vl-string-position 44 smalladdress (+ ,pos11 1)))
       (setq ,pos13 (vl-string-position 44 smalladdress (+ ,pos12 1)))
+      (setq ,pos14 (vl-string-position 44 smalladdress (+ ,pos13 1)))
 
       (setq flatNumber  (substr smalladdress 1 ,pos1))
       (setq flatType         (substr smalladdress (+ ,pos1 2) (- (- ,pos2 ,pos1) 1)))
-      (setq floorLevelNumber (substr smalladdress (+ ,pos2 2) (- (- ,pos3 ,pos2) 1)))
-      (setq floorLevelType   (substr smalladdress (+ ,pos3 2) (- (- ,pos4 ,pos3) 1)))
-      (setq numberfirst      (substr smalladdress (+ ,pos4 2) (- (- ,pos5 ,pos4) 1)))
-      (setq numberSuffixFirst(substr smalladdress (+ ,pos5 2) (- (- ,pos6 ,pos5) 1)))
-      (setq numberLast       (substr smalladdress (+ ,pos6 2) (- (- ,pos7 ,pos6) 1)))
-      (setq numberSuffixLast (substr smalladdress (+ ,pos7 2) (- (- ,pos8 ,pos7) 1)))
-      (setq roadName         (substr smalladdress (+ ,pos8 2) (- (- ,pos9 ,pos8) 1)))
-      (setq roadnamesuffix   (substr smalladdress (+ ,pos9 2) (- (- ,pos10 ,pos9) 1)))
-      (setq roadnametype     (substr smalladdress (+ ,pos10 2) (- (- ,pos11 ,pos10) 1)))
-      (setq roadtype         (substr smalladdress (+ ,pos11 2) (- (- ,pos12 ,pos11) 1)))
-      (setq adminareaname    (substr smalladdress (+ ,pos12 2) (- (- ,pos13 ,pos12) 1)))
-      (setq adminAreaCode    (substr smalladdress (+ ,pos13 2)))
+      (setq complexname      (substr smalladdress (+ ,pos2 2) (- (- ,pos3 ,pos2) 1)))
+      (setq floorLevelNumber (substr smalladdress (+ ,pos3 2) (- (- ,pos4 ,pos3) 1)))
+      (setq floorLevelType   (substr smalladdress (+ ,pos4 2) (- (- ,pos5 ,pos4) 1)))
+      (setq numberfirst      (substr smalladdress (+ ,pos5 2) (- (- ,pos6 ,pos5) 1)))
+      (setq numberSuffixFirst(substr smalladdress (+ ,pos6 2) (- (- ,pos7 ,pos6) 1)))
+      (setq numberLast       (substr smalladdress (+ ,pos7 2) (- (- ,pos8 ,pos7) 1)))
+      (setq numberSuffixLast (substr smalladdress (+ ,pos8 2) (- (- ,pos9 ,pos8) 1)))
+      (setq roadName         (substr smalladdress (+ ,pos9 2) (- (- ,pos10 ,pos9) 1)))
+      (setq roadnamesuffix   (substr smalladdress (+ ,pos10 2) (- (- ,pos11 ,pos10) 1)))
+      (setq roadnametype     (substr smalladdress (+ ,pos11 2) (- (- ,pos12 ,pos11) 1)))
+      (setq roadtype         (substr smalladdress (+ ,pos12 2) (- (- ,pos13 ,pos12) 1)))
+      (setq adminareaname    (substr smalladdress (+ ,pos13 2) (- (- ,pos14 ,pos13) 1)))
+      (setq adminAreaCode    (substr smalladdress (+ ,pos14 2)))
 
       (if (/= flatnumber "")(setq flatnumber (strcat "flatNumber=\"" flatnumber "\" ")))
       (if (/= flatType "")(setq flatType (strcat "flatType=\"" flatType "\" ")))
+      (if (/= complexname "")(setq complexname (strcat "<ComplexName desc=\"" complexname "\" priority=\"1\" />" (chr 10))))
       (if (/= floorLevelNumber "")(setq floorLevelNumber (strcat "floorLevelNumber=\""floorLevelNumber  "\" ")))
       (if (/= floorLevelType "")(setq floorLevelType (strcat "floorLevelType=\""floorLevelType  "\" ")))
       (if (/= numberfirst "")(setq numberfirst (strcat "numberFirst=\""numberfirst  "\" ")))
@@ -19851,7 +21677,9 @@
       (if (/= adminareaname "")(setq adminareaname (strcat "adminAreaName=\""adminareaname  "\" ")))
       (if (/= adminAreaCode "")(setq adminAreaCode (strcat "adminAreaCode=\""adminAreaCode  "\" ")))
 
+
       (setq largeaddress (strcat "<LocationAddress addressType=\"Primary\" " flatnumber flattype floorlevelnumber floorleveltype numberfirst numbersuffixfirst numberlast numbersuffixlast ">" (chr 10)
+				 complexname
 				 "<RoadName " roadname roadnamesuffix roadnametype roadtype "/>" (chr 10)
 				 "<AdministrativeArea " adminareaname "adminAreaType=\"Locality\" " adminareacode "/>" (chr 10)
 				 "</LocationAddress>"))
@@ -19921,13 +21749,15 @@
 (write-line "</Units>" outfile)
 (write-line (strcat "<CoordinateSystem" datumdesc " datum=\""( nth 21 attlist) "\" horizontalDatum=\"" hdatum "\" />") outfile)
 (write-line "" outfile)
-(write-line (strcat "<Application name=\"Landxml for Autocad Victorian Flavour\" version=\"" version "\" />") outfile)
+(write-line (strcat "<Application name=\"Landxml for Autocad Victorian Flavour\" version=\"" version "\" >") outfile)
+(write-line (strcat "<Author createdBy=\"" (nth 16 attlist) "\"/>") outfile)
+(write-line "</Application>" outfile)  
 (write-line "<FeatureDictionary name=\"xml-gov-au-vic-icsm-eplan-cif-protocol\" version=\"1.0\" />" outfile)
 
   
   ;@@@@Write cg points while checking for pms and datum points
     (princ "\nWriting CG points")
-  (if (/= (nth 22 attlist) "")(setq zone (strcat "zoneNumber=\"" (nth 23 attlist) "\""))(setq zone ""))
+  (if (/= (nth 23 attlist) "")(setq zone (strcat "zoneNumber=\"" (nth 23 attlist) "\""))(setq zone ""))
 (write-line (strcat "<CgPoints " zone ">") outfile)
 (setq count 0)
   (repeat (/ (length cgpl) 4)
@@ -19986,11 +21816,12 @@
     (if (= (nth 13 attlist) "compiled")(setq plantype "computed"))
     (if (= (nth 13 attlist) "surveyed")(setq plantype "surveyed"))
 
+    (if (/= (nth 20 attlist) "")(setq surveyformat (strcat " surveyFormat=\"" (nth 20 attlist) "\"" ))(setq surveyformat ""))
   
   ;write survey header  
   ;@@@@surveyorf firm extra "
   (write-line "<Survey>" outfile)
-(write-line (strcat "  <SurveyHeader name=\""  (nth 0 attlist) "\" jurisdiction=\"" (nth 19 attlist)   "\" type=\"" plantype "\"" surfirm surveyorReference " surveyFormat=\"" (nth 20 attlist) "\">") outfile)
+(write-line (strcat "  <SurveyHeader name=\""  (nth 0 attlist) "\" jurisdiction=\"" (nth 19 attlist)   "\" type=\"" plantype "\"" surfirm surveyorReference surveyformat ">") outfile)
 
     ;seperate head of powers by &
 
@@ -20016,8 +21847,8 @@
 	  ;uncapitalise section and purpose
 	  (setq purpose1 (nth 26 attlist))
 	  (setq purpose2 (nth 14 attlist))
-   (if (member (strcat purpose1 "-" purpose2) purposelistuncaps)(setq purpose3 (nth 0 (member (strcat purpose1 "-" purpose2) purposelistuncaps)))(setq purpose3(strcat purpose1 "-" purpose2)))
-
+   (if (and (= (substr purpose1 2 6) "ECTION") (member (strcat purpose1 "-" purpose2) purposelistuncaps))(setq purpose3 (nth 1 (member (strcat purpose1 "-" purpose2) purposelistuncaps)))(setq purpose3(strcat purpose1 "-" purpose2)))
+ 
     
 
    ;REMOVED- NOW DONE BY UNCAPS LIST remove plan name for section 37(8) and (Section 26)	  
@@ -20078,6 +21909,12 @@
     (if (/= (nth 8 attlist) "")(progn
 				  (write-line (strcat "    <Annotation type=\"Crown Portion\" name=\"ANNO-" (rtos annocount 2 0) "\" desc=\"" (nth 8 attlist) "\"/>") outfile)
 				  (setq annocount (+ annocount 1))))
+    (if (/= (nth 9 attlist) "")(progn
+				  (write-line (strcat "    <Annotation type=\"Approx. Centre of Land\" name=\"ANNO-" (rtos annocount 2 0) "\" desc=\"cs=MGA_2020&amp;zoneNumber=" (nth 29 attlist) "&amp;easting=" (nth 27 attlist) "&amp;northing=" (nth 28 attlist) "\"/>") outfile)
+				  (setq annocount (+ annocount 1))))
+
+
+   
 
 
 
@@ -20282,45 +22119,45 @@
 ))
 
 (setq purposelist (list
-"Section 6(1)(K)"
-"Section 22-Plan of Subdivision"
-"Section 22-Plan of Consolidation"
-"Section 23-Creation of Easement"
-"Section 23-Removal of Easement"
-"Section 23-Variation of Easement"
-"Section 23-Creation and Removal of Easement"
-"Section 23-Creation and Variation of Easement"
-"Section 23-Removal and Variation of Easement"
-"Section 23-Creation and Removal and Variation of Easement"
-"Section 23-Variation of Condition in Crown Grant"
-"Section 23-Removal of Condition in Crown Grant"
-"Section 23-Creation of Restriction"
-"Section 23-Removal of Restriction"
-"Section 23-Variation of Restriction"
-"Section 24a-Vesting of a Reserve"
-"Section 24a-Removal of a Reserve (Plan of Subdivision)"
-"Section 24a-Removal of a Reserve (Plan of Consolidation)"
-"Section 24a-Removal and Vesting of a Reserve (Plan of Subdivision)"
-"Section 24a-Removal and Vesting of a Reserve (Plan of Consolidation)"
-"Section 26"
-"Section 32-Plan to alter land affected by an owners corporation (Plan of Subdivision)"
-"Section 32-Plan to alter land affected by an owners corporation (Registered Plan)"
-"Section 32-Plan to alter land affected by an owners corporation (Strata Plan)"
-"Section 32-Plan to alter land affected by an owners corporation (Cluster Subdivision)"
-"Section 32a-Plan of Subdivision of land if an owners corporation is affected"
-"Section 32a-Plan of Consolidation of land if an owners corporation is affected"
-"Section 32b-Plan to create an owners corporation (Existing Plan)"
-"Section 32b-Plan to create an owners corporation (New Plan)"
-"Section 35-Acquisition of land by acquiring authority"
-"Section 35-Acquisition of land if an owners corporation is affected (Plan of Subdivision)"
-"Section 35-Acquisition of land if an owners corporation is affected (Registered Plan)"
-"Section 35-Acquisition of land if an owners corporation is affected (Strata Plan)"
-"Section 35-Acquisition of land if an owners corporation is affected (Cluster Subdivision)"
-"Section 35(8)-Subdivision of land vested or registered in authority"
-"Section 35(8)-Consolidation of land vested or registered in authority"
-"Section 37-Plan of Subdivision (Staged Plan)"
-"Section 37-Acquisition of land (Plan of Subdivision (Staged))"
-"Section 37(8)"
+"SECTION 6(1)(K)"
+"SECTION 22-PLAN OF SUBDIVISION"
+"SECTION 22-PLAN OF CONSOLIDATION"
+"SECTION 23-CREATION OF EASEMENT"
+"SECTION 23-REMOVAL OF EASEMENT"
+"SECTION 23-VARIATION OF EASEMENT"
+"SECTION 23-CREATION AND REMOVAL OF EASEMENT"
+"SECTION 23-CREATION AND VARIATION OF EASEMENT"
+"SECTION 23-REMOVAL AND VARIATION OF EASEMENT"
+"SECTION 23-CREATION AND REMOVAL AND VARIATION OF EASEMENT"
+"SECTION 23-VARIATION OF CONDITION IN CROWN GRANT"
+"SECTION 23-REMOVAL OF CONDITION IN CROWN GRANT"
+"SECTION 23-CREATION OF RESTRICTION"
+"SECTION 23-REMOVAL OF RESTRICTION"
+"SECTION 23-VARIATION OF RESTRICTION"
+"SECTION 24A-VESTING OF A RESERVE"
+"SECTION 24A-REMOVAL OF A RESERVE (PLAN OF SUBDIVISION)"
+"SECTION 24A-REMOVAL OF A RESERVE (PLAN OF CONSOLIDATION)"
+"SECTION 24A-REMOVAL AND VESTING OF A RESERVE (PLAN OF SUBDIVISION)"
+"SECTION 24A-REMOVAL AND VESTING OF A RESERVE (PLAN OF CONSOLIDATION)"
+"SECTION 26"
+"SECTION 32-PLAN TO ALTER LAND AFFECTED BY AN OWNERS CORPORATION (PLAN OF SUBDIVISION)"
+"SECTION 32-PLAN TO ALTER LAND AFFECTED BY AN OWNERS CORPORATION (REGISTERED PLAN)"
+"SECTION 32-PLAN TO ALTER LAND AFFECTED BY AN OWNERS CORPORATION (STRATA PLAN)"
+"SECTION 32-PLAN TO ALTER LAND AFFECTED BY AN OWNERS CORPORATION (CLUSTER SUBDIVISION)"
+"SECTION 32A-PLAN OF SUBDIVISION OF LAND IF AN OWNERS CORPORATION IS AFFECTED"
+"SECTION 32A-PLAN OF CONSOLIDATION OF LAND IF AN OWNERS CORPORATION IS AFFECTED"
+"SECTION 32B-PLAN TO CREATE AN OWNERS CORPORATION (EXISTING PLAN)"
+"SECTION 32B-PLAN TO CREATE AN OWNERS CORPORATION (NEW PLAN)"
+"SECTION 35-ACQUISITION OF LAND BY ACQUIRING AUTHORITY"
+"SECTION 35-ACQUISITION OF LAND IF AN OWNERS CORPORATION IS AFFECTED (PLAN OF SUBDIVISION)"
+"SECTION 35-ACQUISITION OF LAND IF AN OWNERS CORPORATION IS AFFECTED (REGISTERED PLAN)"
+"SECTION 35-ACQUISITION OF LAND IF AN OWNERS CORPORATION IS AFFECTED (STRATA PLAN)"
+"SECTION 35-ACQUISITION OF LAND IF AN OWNERS CORPORATION IS AFFECTED (CLUSTER SUBDIVISION)"
+"SECTION 35(8)-SUBDIVISION OF LAND VESTED OR REGISTERED IN AUTHORITY"
+"SECTION 35(8)-CONSOLIDATION OF LAND VESTED OR REGISTERED IN AUTHORITY"
+"SECTION 37-PLAN OF SUBDIVISION (STAGED PLAN)"
+"SECTION 37-ACQUISITION OF LAND (PLAN OF SUBDIVISION (STAGED))"
+"SECTION 37(8)"
 ))
 
 (setq notelist (list 
@@ -20505,119 +22342,119 @@
 
 
 (setq townlist (list
-"Aberfeldy,5001" "Acheron,5002" "Ailsa,5003" "Albacutya,5004" "Alberton,5005" "Alexandra,5006" "Allans Flat,5007" "Alma,5008" "Amherst,5009" 
-"Amphitheatre,5010" "Anglesea,5011" "Annuello,5012" "Antwerp,5013" "Apollo Bay,5014" "Apsley,5015" "Arapiles,5016" "Ararat,5017" "Archdale,5018"
- "Arnold,5019" "Ascot,5020" "Aubrey,5021" "Avenel,5022" "Avoca,5023" "Axedale,5024" "Bacchus Marsh,5025" "Baddaginnie,5026" "Bairnsdale,5027"
- "Baker,5028" "Ballan,5029" "Ballarat,5030" "Ballarat East,5031" "Ballarat North,5032" "Balliang,5033" "Ballyrogan,5034" "Balmoral,5035"
- "Balnarring Beach,5036" "Bambill,5037" "Bangerang,5038" "Bannerton,5039" "Bannockburn,5040" "Banyena,5041" "Baringhup,5042" "Barkly,5043"
- "Barkstead,5044" "Barmah,5045" "Barnawartha,5046" "Barrakee,5047" "Barrapoort,5048" "Barringo,5049" "Barrys Reef,5050" "Barwon Downs,5051"
- "Barwon Heads,5052" "Bass,5053" "Bathumi,5054" "Bealiba,5055" "Bearii,5056" "Bears Lagoon,5057" "Beaufort,5058" "Beazleys Bridge,5059"
- "Beeac,5060" "Beechworth,5061" "Beenak,5062" "Beetoomba,5063" "Bellbrae,5064" "Bemm,5065" "Benalla,5066" "Benambra,5067" "Bendoc,5068"
- "Benetook,5069" "Bengworden,5070" "Benjeroop,5071" "Bennison,5072" "Berringa,5073" "Berringama,5074" "Berriwillock,5075" "Berrybank,5076"
- "Berwick,5077" "Bet Bet,5078" "Bethanga,5079" "Betley,5080" "Beulah,5081" "Beveridge,5082" "Bingo-Munjie North,5083" "Birchip,5084"
- "Birregurra,5085" "Blackwarry,5086" "Blackwood,5087" "Blakeville,5088" "Bocca Flat (see 3782,5089" "Boigbeat,5090" "Boileau,5091"
- "Boinka,5092" "Bolton,5093" "Bolwarrah,5094" "Bonang,5095" "Bonnie Doon,5096" "Boolarra,5097" "Boolite,5098" "Boonoonar,5099"
- "Boorgunyah,5100" "Booroopki,5101" "Boort,5102" "Borung,5103" "Bowenvale,5104" "Branxholme,5105" "Braybrook,5106" "Breamlea,5107"
- "Briagolong,5108" "Bridgewater,5109" "Bright,5110" "Brim,5111" "Britannia Creek,5112" "Broadford,5113" "Broadmeadows,5114" "Bromley,5115"
- "Brookville,5116" "Broomfield,5117" "Broughton,5118" "Bruarong,5119" "Bruthen,5120" "Buangor,5121" "Buchan,5122" "Buckrabanyule,5123"
- "Buffalo,5124" "Bulla,5125" "Bullarto,5126" "Bullarto South,5127" "Bullumwaal,5128" "Buln Buln,5129" "Bunbartha,5130" "Bundalong,5131"
- "Bung Bong,5132" "Bungeet,5133" "Buninyong,5134" "Bunyip,5135" "Burkes Flat,5136" "Burrereo,5137" "Burwood,5138" "Bushfield,5139" "Byaduk,5140"
- "Byaduk North,5141" "Callawadda,5142" "Callignee,5143" "Cambrian Hill,5144" "Campbells Creek,5145" "Campbelltown,5146" "Camperdown,5147"
- "Cann River,5148" "Cape Clear,5149" "Caramut,5150" "Carapooee,5151" "Carapook,5152" "Cargerie,5153" "Carisbrook,5154" "Carlsruhe,5155"
- "Carlyle,5156" "Carngham,5157" "Carrajung,5158" "Carwarp,5159" "Cashel,5160" "Cassilis,5161" "Casterton,5162" "Castlemaine,5163"
- "Castle Point,5164" "Cavendish,5165" "Charlton,5166" "Chatsworth,5167" "Chepstowe,5168" "Cherokee,5169" "Cheshunt,5170" "Chetwynd,5171"
- "Childers,5172" "Chiltern,5173" "Chinkapook,5174" "Clarendon,5175" "Clear Lake,5176" "Club Terrace,5177" "Clunes,5178" "Coalville,5179"
- "Cobden,5180" "Cobram,5181" "Coburg,5182" "Cocamba,5183" "Cockatoo,5184" "Cohuna,5185" "Colac,5186" "Colbinabbin,5187" "Coleraine,5188"
- "Comoora,5189" "Congupna Road,5190" "Cooma,5191" "Coonooer,5192" "Coopers Creek,5193" "Cope Cope,5194" "Corack,5195" "Cora Lynn,5196"
- "Corindhap,5197" "Corinella,5198" "Corop,5199" "Corryong,5200" "Costerfield,5201" "Cowa,5202" "Cowangie,5203" "Cowes,5204" "Cowwarr,5205"
- "Craigie,5206" "Cranbourne,5207" "Cravensville (see 2855,5208" "Creek View,5209" "Cressy,5210" "Creswick,5211" "Crib Point,5212"
- "Crossover,5213" "Crowlands,5214" "Cudgee,5215" "Culgoa,5216" "Cullulleraine,5217" "Cunninghame,5218" "Curyo,5219" "Dalhousie,5220"
- "Dandenong,5221" "Danyo,5222" "Dargo,5223" "Darlimurla,5224" "Darlingford,5225" "Darlington,5226" "Darnum,5227" "Darraweit Guim,5228"
- "Dartmoor,5229" "Dartmouth,5230" "Daylesford,5231" "Daylesford West,5232" "Deddick,5233" "Dederang,5234" "Dennington,5235" "Deptford,5236"
- "Dereel,5237" "Dergholm,5238" "Derrinallum,5239" "Devenish West,5240" "Devon,5241" "Diamond Creek,5242" "Diapur,5243" "Digby,5244"
- "Dimboola,5245" "Dollar,5246" "Donald,5247" "Dooen,5248" "Douglas,5249" "Drik Drik,5250" "Dromana,5251" "Drouin,5252" "Dry Diggings,5253"
- "Drysdale,5254" "Dunbulbalane,5255" "Dunkeld,5256" "Dunolly,5257" "Durham,5258" "Durham Lead,5259" "Durham Ox,5260" "East Cunninghame,5261"
- "East Murchison,5262" "Echuca,5263" "Echuca West,5264" "Eddington,5265" "Edenhope,5266" "Edi,5267" "Egerton,5268" "Eilyar,5269" "Elaine,5270"
- "Elaine North,5271" "Eldorado,5272" "Elingamite North,5273" "Ellam,5274" "Ellerslie,5275" "Elmhurst,5276" "Elmore,5277" "Elphinstone,5278"
- "Eltham,5279" "Emerald,5280" "Emu,5281" "Ensay,5282" "Epping,5283" "Epsom,5284" "Eskdale,5285" "Eurack,5286" "Euroa,5287" "Evansford,5288"
- "Everton,5289" "Fernbank,5290" "Fernihurst,5291" "Flinders,5292" "Flynn,5293" "Flynns Creek Upper,5294" "Forrest,5295" "Foster,5296"
- "Fosterville,5297" "Foxhow,5298" "Framlingham,5299" "Franklinford,5300" "Frankston,5301" "Freeburgh,5302" "Fryerstown,5303" "Furnell,5304"
- "Fyansford,5305" "Galah,5306" "Garfield,5307" "Garibaldi,5308" "Garvoc,5309" "Gavan Duffy,5310" "Geelong,5311" "Gelantipy,5312"
- "Gellibrand,5313" "Gerangamete,5314" "Gerang Gerung,5315" "Ghin Ghin,5316" "Giffard,5317" "Gipsy Point,5318" "Girgarre,5319"
- "Gisborne,5320" "Glanville,5321" "Glen Dart,5322" "Glengower,5323" "Glenlyon,5324" "Glenmaggie,5325" "Glenorchy,5326" "Glenrowen,5327"
- "Glenthompson,5328" "Glen Wills,5329" "Gobur,5330" "Golden Lake,5331" "Goldsborough,5332" "Goon Nure,5333" "Gooramadda,5334" "Goornong,5335"
- "Gooroc,5336" "Gordon,5337" "Gormandale,5338" "Goroke,5339" "Goschen,5340" "Gould,5341" "Gowar,5342" "Gowar East,5343" "Goyura,5344"
- "Granite Flat,5345" "Grant,5346" "Granton,5347" "Grantville,5348" "Granya,5349" "Graytown,5350" "Great Western,5351" "Greendale,5352"
- "Green Gully,5353" "Greens Creek,5354" "Gre Gre,5355" "Grenville,5356" "Greta,5357" "Greta West,5358" "Guildford,5359" "Gunbower,5360"
- "Gunyah Gunyah,5361" "Haddon,5362" "Haines,5363" "Hamilton,5364" "Happy Valley,5365" "Harcourt,5366" "Harrietville,5367" "Harrow,5368"
- "Hastings,5369" "Hattah,5370" "Hawkesdale,5371" "Healesville,5372" "Heathcote,5373" "Heatherlie,5374" "Hedley,5375" "Heidelberg,5376"
- "Hepburn,5377" "Hexham,5378" "Heyfield,5379" "Heywood,5380" "Hinno-Munjie,5381" "Hoddle,5382" "Hollinwood,5383" "Homebush,5384" "Hopetoun,5385"
- "Horsham,5386" "Hotspur,5387" "Howqua,5388" "Huntly,5389" "Iguana Creek,5390" "Inglewood,5391" "Inverleigh,5392" "Inverloch,5393"
-"Irrewillipe,5394" "Jamieson,5395" "Jam Jerrup,5396" "Jarrott,5397" "Jeeralang Junction,5398" "Jerro,5399" "Johnsonville,5400" "Kalimna,5401"
- "Kalkallo,5402" "Kangaroo Flat,5403" "Kaniva,5404" "Karabeal,5405" "Karawinna,5406" "Kardella,5407" "Karnak,5408" "Karween,5409"
- "Katamatite,5410" "Katandra,5411" "Keilor,5412" "Kerang,5413" "Kewell,5414" "Kialla West,5415" "Kiamal,5416" "Kiata,5417" "Kilcunda,5418"
- "Kilmany,5419" "Kilmore,5420" "Kinglake Central,5421" "Kinglake East,5422" "Kingower,5423" "Kirkstall,5424" "Koetong,5425" "Kooloonong,5426"
- "Koondrook,5427" "Koonoomoo,5428" "Koonwarra,5429" "Koorooman,5430" "Kooyoora,5431" "Korokubeal,5432" "Korong Vale,5433" "Korumburra,5434"
- "Koyuga,5435" "Kulwin,5436" "Kurraca,5437" "Kyabram,5438" "Kyneton,5439" "Laanecoorie,5440" "Laang,5441" "Lah,5442" "Lake Boga,5443"
- "Lake Bolac,5444" "Lake Charm,5445" "Lake Rowan,5446" "Lakes Entrance,5447" "Lal Lal,5448" "Lamplough,5449" "Lancefield,5450"
- "Landsborough,5451" "Lara,5452" "Launching Place,5453" "Lauriston,5454" "Lawloit,5455" "Lawrence,5456" "Learmonth,5457" "Leichardt,5458"
- "Leonards Hill,5459" "Leongatha,5460" "Lethbridge,5461" "Lexton,5462" "Lillimur,5463" "Lillimur South,5464" "Lilydale,5465" "Linga,5466"
- "Linton,5467" "Lismore,5468" "Little River,5469" "Llanelly,5470" "Lockington,5471" "Locksley,5472" "Lockwood,5473" "Longerenong,5474"
- "Longford,5475" "Longwarry,5476" "Longwood,5477" "Lorne,5478" "Lorquon,5479" "Lower Emu,5480" "Lower Homebush,5481" "Lubeck,5482"
- "Lucknow,5483" "Lyons,5484" "Lyonville,5485" "Macarthur,5486" "Macedon,5487" "Mackinnons Bridge,5488" "Mafeking,5489" "Maffra,5490"
- "Maindample,5491" "Majorca,5492" "Maldon,5493" "Mallacoota,5494" "Malmsbury,5495" "Manangatang,5496" "Mandurang,5497" "Mangalore,5498"
- "Manorina,5499" "Mansfield,5500" "Marengo,5501" "Maribyrnong,5502" "Marlo,5503" "Marnoo,5504" "Marong,5505" "Maroona,5506" "Marungi,5507"
- "Maryborough,5508" "Marysville,5509" "Mathiesons,5510" "Matlock,5511" "Maude,5512" "Meeniyan,5513" "Melbourne,5514" "Melbourne,5514A"
- "Melbourne,5514A" "Melbourne,5514B" "Melbourne,5514B" "Melbourne,5514C" "Melbourne,5514D" "Melton,5515" "Merbein,5516" "Meredith,5517"
- "Meringo,5518" "Meringur,5519" "Merino,5520" "Merricks,5521" "Merrijig,5522" "Merrinee,5523" "Merton,5524" "Metcalfe,5525" "Metung,5526"
- "Mia Mia,5527" "Middle Creek,5528" "Miepoll,5529" "Milltown,5530" "Miners Rest,5531" "Minimay,5532" "Minyip,5533" "Miralie,5534" "Miram,5535"
- "Mirboo,5536" "Mirboo North,5537" "Mitchellstown,5538" "Mitta Mitta,5539" "Mittyack,5540" "Modewarre,5541" "Moe,5542" "Molesworth,5543"
- "Moliagul,5544" "Molyullah,5545" "Monbulk,5546" "Moonambel,5547" "Moorilim,5548" "Mooroopna,5549" "Morkalla,5550" "Mornington,5551"
-"Morrisons,5552" "Mortlake,5553" "Morwell,5554" "Mossiface,5555" "Moyston,5556" "Muckatah,5557" "Mudgeegonga,5558" "Mumbannar,5559"
- "Munro,5560" "Murchison,5561" "Murrabit,5562" "Murra Warra,5563" "Murrayville,5564" "Murrungowar,5565" "Murtoa,5566" "Myrniong,5567"
- "Myrtleford,5568" "Mystic Park,5569" "Nagambie,5570" "Nalinga,5571" "Nandaly,5572" "Napoleons,5573" "Narbethong,5574" "Nariel,5575"
-"Narrawong,5576" "Nathalia,5577" "Natimuk,5578" "Natte Yallock,5579" "Natya,5580" "Navarre,5581" "Neerim,5582" "Neilborough,5583" "Nelson,5584"
- "Nerrina,5585" "Netherby,5586" "Neuarpur,5587" "Newbridge,5588" "Newbury,5589" "Newhaven,5590" "Newlyn North,5591" "Newmerella,5592"
- "Newry,5593" "Newstead,5594" "Nhill,5595" "Nilma,5596" "Ni Ni,5597" "Ninyeunook,5598" "Nirranda,5599" "Noojee,5600" "Noradjuha,5601"
-"Norong,5602" "Northcote,5603" "Nowa Nowa,5604" "Nowingi,5605" "Nullawil,5606" "Numurkah,5607" "Nungurner,5608" "Nuntin,5609" "Nurrabiel,5610"
-"Nyah,5611" "Nyah West,5612" "Nyora,5613" "Oakleigh,5614" "Old Longwood,5615" "Olinda,5616" "Omeo,5617" "Orbost,5618" "Orford,5619"
- "Osborne,5620" "Ouyen,5621" "Oxley,5622" "Pakenham,5623" "Panitya,5624" "Panmure,5625" "Panton Hill,5626" "Paynesville,5627" "Peechelba,5628"
- "Penshurst,5629" "Percydale,5630" "Peterborough,5631" "Pheasant Creek,5632" "Piangil,5633" "Pier-Millan,5634" "Pigeon Ponds,5635"
- "Pimpinio,5636" "Pira,5637" "Piries,5638" "Pirlta,5639" "Pirron Yallock,5640" "Pitfield,5641" "Pitfield Plains,5642" "Pollard,5643"
- "Poowong,5644" "Porepunkah,5645" "Port Albert,5646" "Portarlington,5647" "Port Campbell,5648" "Port Fairy,5649" "Port Franklin,5650"
- "Portland,5651" "Port Welshpool,5652" "Powelltown,5653" "Princetown,5654" "Pullut,5655" "Pura Pura,5656" "Purdeet,5657" "Pyalong,5658"
- "Pyramid Hill,5659" "Quambatook,5660" "Queenscliff,5661" "Queenstown,5662" "Raglan,5663" "Rainbow,5664" "Ravenswood,5665" "Raymond Island,5666"
- "Raywood,5667" "Redbank,5668" "Redcastle,5669" "Redesdale,5670" "Red Hill South,5671" "Reedy Creek,5672" "Rheola,5673" "Rhyll,5674"
- "Riddell,5675" "Ringwood,5676" "Robinvale,5677" "Rochester,5678" "Rokeby,5679" "Rokewood,5680" "Romsey,5681" "Rosebud,5682" "Rosedale,5683"
- "Rossbridge,5684" "Rowsley,5685" "Ruffy,5686" "Runnymede,5687" "Rupanyup,5688" "Rushworth,5689" "Rutherglen,5690" "Rye,5691" "St. Arnaud,5692"
- "St. Clair,5693" "St. Leonards,5694" "Sale,5695" "Salisbury,5696" "Sandford,5697" "Sandy Point,5698" "San Remo,5699" "Sarsfield,5700"
- "Scotts Creek,5701" "Seacombe,5702" "Sea Lake,5703" "Seaspray,5704" "Seaton,5705" "Sebastian,5706" "Sebastopol,5707" "Serpentine,5708"
- "Serviceton,5709" "Seville,5710" "Seymour,5711" "Shelford,5712" "Shepparton,5713" "Shirley,5714" "Shoreham,5715" "Skenes Creek,5716"
- "Skipton,5717" "Skye,5718" "Smeaton,5719" "Smiths Gully,5720" "Smythesdale,5721" "Sorrento,5722" "South Bannockburn,5723"
- "South Muckleford,5724" "Speed,5725" "Spring Hill,5726" "Springhurst,5727" "Stanhope,5728" "Stanley,5729" "Stawell,5730" "Steiglitz,5731"
- "Stirling,5732" "Stockyard Hill,5733" "Stony Creek,5734" "Stradbroke,5735" "Stratford,5736" "Strathallan,5737" "Strathbogie,5738"
- "Strath Creek,5739" "Strathfieldsaye,5740" "Streatham,5741" "Stuartmill,5742" "Suggan Buggan,5743" "Sunbury,5744" "Sunnyside,5745"
- "Sutton Grange,5746" "Swan Hill,5747" "Swanpool,5748" "Swan Reach,5749" "Swifts Creek,5750" "Sydenham,5751" "Tabbara,5752" "Taggerty,5753"
- "Tahara,5754" "Talbot,5755" "Tallangallook,5756" "Tallangatta,5757" "Tallangatta Valley,5758" "Tallarook,5759" "Tamboon,5760"
- "Tamboon South,5761" "Taradale,5762" "Tarilta,5763" "Tarkedia,5764" "Tarnagulla,5765" "Tarranginnie,5766" "Tarraville,5767"
- "Tarrayoukyan,5768" "Tarwin,5769" "Tarwin Lower,5770" "Tatong,5771" "Tatonga,5772" "Tatura,5773" "Teesdale,5774" "Telopea Downs,5775"
- "Templestowe,5776" "Tempy,5777" "Terang,5778" "Terrick Terrick,5779" "Terrick Terrick South,5780" "The Gap,5781" "Thoona,5782"
- "Timboon,5783" "Timor,5784" "Tolmie,5785" "Tongala,5786" "Tongio-Munjie,5787" "Tongio West,5788" "Toolamba,5789" "Toolangi,5790"
- "Toolern Vale,5791" "Toolleen,5792" "Toolondo,5793" "Toombon,5794" "Toongabbie,5795" "Torquay,5796" "Torrita,5797" "Towaninny,5798"
- "Towong,5799" "Trafalgar,5800" "Traralgon,5801" "Trentham,5802" "Trinita,5803" "Tungamah,5804" "Tunstals,5805" "Tutye,5806"
- "Tyaak,5807" "Tyers (see 2185 Boola,5808" "Tylden,5809" "Tynong,5810" "Tyrendarra,5811" "Underbool,5812" "Vaughan,5813" "Ventnor,5814"
- "Violet Town,5815" "Waaia,5816" "Waanyarra,5817" "Wail,5818" "Walhalla,5819" "Walkerville,5820" "Wallace,5821" "Wallan,5822" "Walmer,5823"
- "Walpeup,5824" "Wal Wal,5825" "Wandiligong,5826" "Wandin Yallock,5827" "Wando Vale,5828" "Wangaratta,5829" "Wannon,5830" "Warburton,5831"
- "Wareek,5832" "Warneet,5833" "Warracknabeal,5834" "Warragul,5835" "Warrak,5836" "Warrandyte,5837" "Warrandyte North" "Warrayure,5839"
- "Warrenheip,5840" "Warrnambool,5841" "Watchem,5842" "Waubra,5843" "Waygara,5844" "Wedderburn,5845" "Wehla,5846" "Werribee,5847"
- "Werrimull,5848" "Wesburn,5849" "Westbury,5850" "Westmere,5851" "Wharparilla North,5852" "Whiskey Creek,5853" "White Hills,5854"
- "Whittlesea,5855" "Whorouly,5856" "Whroo,5857" "Wickliffe,5858" "Wilby,5859" "Willenabrina,5860" "Williamstown,5861" "Willow Grove,5862"
- "Willung,5863" "Winchelsea,5864" "Wingeel,5865" "Winslow,5866" "Winton,5867" "Winyar,5868" "Wodonga,5869" "Wombelano,5870" "Wonthaggi,5871"
- "Wonwondah East,5872" "Wonwondah North,5873" "Woodend,5874" "Woodford,5875" "Woodside,5876" "Woodside North,5877" "Woods Point,5878"
- "Wood Wood,5879" "Woolamai,5880" "Woolsthorpe,5881" "Woomelang,5882" "Woorinen South,5883" "Woorndoo,5884" "Wooroonook,5885" "Wunghnu,5886"
- "Wurdi Boluc,5887" "Wurruk,5888" "Wycheproof,5889" "Wyelangta,5890" "Wyuna,5891" "Yaapeet,5892" "Yackandandah,5893" "Yambuk,5894"
- "Yanac South,5895" "Yandoit,5896" "Yarck,5897" "Yarragon,5898" "Yarra Junction,5899" "Yarrara,5900" "Yarrawonga,5901" "Yarto,5902"
- "Yatpool,5903" "Yea,5904" "Yellingbo,5905" "Yelta,5906" "Yendon,5907" "Yungera,5908" "Yuppeckiar,5909"
+"ABERFELDY,5001" "ACHERON,5002" "AILSA,5003" "ALBACUTYA,5004" "ALBERTON,5005" "ALEXANDRA,5006" "ALLANS FLAT,5007" "ALMA,5008" "AMHERST,5009" 
+"AMPHITHEATRE,5010" "ANGLESEA,5011" "ANNUELLO,5012" "ANTWERP,5013" "APOLLO BAY,5014" "APSLEY,5015" "ARAPILES,5016" "ARARAT,5017" "ARCHDALE,5018"
+ "ARNOLD,5019" "ASCOT,5020" "AUBREY,5021" "AVENEL,5022" "AVOCA,5023" "AXEDALE,5024" "BACCHUS MARSH,5025" "BADDAGINNIE,5026" "BAIRNSDALE,5027"
+ "BAKER,5028" "BALLAN,5029" "BALLARAT,5030" "BALLARAT EAST,5031" "BALLARAT NORTH,5032" "BALLIANG,5033" "BALLYROGAN,5034" "BALMORAL,5035"
+ "BALNARRING BEACH,5036" "BAMBILL,5037" "BANGERANG,5038" "BANNERTON,5039" "BANNOCKBURN,5040" "BANYENA,5041" "BARINGHUP,5042" "BARKLY,5043"
+ "BARKSTEAD,5044" "BARMAH,5045" "BARNAWARTHA,5046" "BARRAKEE,5047" "BARRAPOORT,5048" "BARRINGO,5049" "BARRYS REEF,5050" "BARWON DOWNS,5051"
+ "BARWON HEADS,5052" "BASS,5053" "BATHUMI,5054" "BEALIBA,5055" "BEARII,5056" "BEARS LAGOON,5057" "BEAUFORT,5058" "BEAZLEYS BRIDGE,5059"
+ "BEEAC,5060" "BEECHWORTH,5061" "BEENAK,5062" "BEETOOMBA,5063" "BELLBRAE,5064" "BEMM,5065" "BENALLA,5066" "BENAMBRA,5067" "BENDOC,5068"
+ "BENETOOK,5069" "BENGWORDEN,5070" "BENJEROOP,5071" "BENNISON,5072" "BERRINGA,5073" "BERRINGAMA,5074" "BERRIWILLOCK,5075" "BERRYBANK,5076"
+ "BERWICK,5077" "BET BET,5078" "BETHANGA,5079" "BETLEY,5080" "BEULAH,5081" "BEVERIDGE,5082" "BINGO-MUNJIE NORTH,5083" "BIRCHIP,5084"
+ "BIRREGURRA,5085" "BLACKWARRY,5086" "BLACKWOOD,5087" "BLAKEVILLE,5088" "BOCCA FLAT (SEE 3782,5089" "BOIGBEAT,5090" "BOILEAU,5091"
+ "BOINKA,5092" "BOLTON,5093" "BOLWARRAH,5094" "BONANG,5095" "BONNIE DOON,5096" "BOOLARRA,5097" "BOOLITE,5098" "BOONOONAR,5099"
+ "BOORGUNYAH,5100" "BOOROOPKI,5101" "BOORT,5102" "BORUNG,5103" "BOWENVALE,5104" "BRANXHOLME,5105" "BRAYBROOK,5106" "BREAMLEA,5107"
+ "BRIAGOLONG,5108" "BRIDGEWATER,5109" "BRIGHT,5110" "BRIM,5111" "BRITANNIA CREEK,5112" "BROADFORD,5113" "BROADMEADOWS,5114" "BROMLEY,5115"
+ "BROOKVILLE,5116" "BROOMFIELD,5117" "BROUGHTON,5118" "BRUARONG,5119" "BRUTHEN,5120" "BUANGOR,5121" "BUCHAN,5122" "BUCKRABANYULE,5123"
+ "BUFFALO,5124" "BULLA,5125" "BULLARTO,5126" "BULLARTO SOUTH,5127" "BULLUMWAAL,5128" "BULN BULN,5129" "BUNBARTHA,5130" "BUNDALONG,5131"
+ "BUNG BONG,5132" "BUNGEET,5133" "BUNINYONG,5134" "BUNYIP,5135" "BURKES FLAT,5136" "BURREREO,5137" "BURWOOD,5138" "BUSHFIELD,5139" "BYADUK,5140"
+ "BYADUK NORTH,5141" "CALLAWADDA,5142" "CALLIGNEE,5143" "CAMBRIAN HILL,5144" "CAMPBELLS CREEK,5145" "CAMPBELLTOWN,5146" "CAMPERDOWN,5147"
+ "CANN RIVER,5148" "CAPE CLEAR,5149" "CARAMUT,5150" "CARAPOOEE,5151" "CARAPOOK,5152" "CARGERIE,5153" "CARISBROOK,5154" "CARLSRUHE,5155"
+ "CARLYLE,5156" "CARNGHAM,5157" "CARRAJUNG,5158" "CARWARP,5159" "CASHEL,5160" "CASSILIS,5161" "CASTERTON,5162" "CASTLEMAINE,5163"
+ "CASTLE POINT,5164" "CAVENDISH,5165" "CHARLTON,5166" "CHATSWORTH,5167" "CHEPSTOWE,5168" "CHEROKEE,5169" "CHESHUNT,5170" "CHETWYND,5171"
+ "CHILDERS,5172" "CHILTERN,5173" "CHINKAPOOK,5174" "CLARENDON,5175" "CLEAR LAKE,5176" "CLUB TERRACE,5177" "CLUNES,5178" "COALVILLE,5179"
+ "COBDEN,5180" "COBRAM,5181" "COBURG,5182" "COCAMBA,5183" "COCKATOO,5184" "COHUNA,5185" "COLAC,5186" "COLBINABBIN,5187" "COLERAINE,5188"
+ "COMOORA,5189" "CONGUPNA ROAD,5190" "COOMA,5191" "COONOOER,5192" "COOPERS CREEK,5193" "COPE COPE,5194" "CORACK,5195" "CORA LYNN,5196"
+ "CORINDHAP,5197" "CORINELLA,5198" "COROP,5199" "CORRYONG,5200" "COSTERFIELD,5201" "COWA,5202" "COWANGIE,5203" "COWES,5204" "COWWARR,5205"
+ "CRAIGIE,5206" "CRANBOURNE,5207" "CRAVENSVILLE (SEE 2855,5208" "CREEK VIEW,5209" "CRESSY,5210" "CRESWICK,5211" "CRIB POINT,5212"
+ "CROSSOVER,5213" "CROWLANDS,5214" "CUDGEE,5215" "CULGOA,5216" "CULLULLERAINE,5217" "CUNNINGHAME,5218" "CURYO,5219" "DALHOUSIE,5220"
+ "DANDENONG,5221" "DANYO,5222" "DARGO,5223" "DARLIMURLA,5224" "DARLINGFORD,5225" "DARLINGTON,5226" "DARNUM,5227" "DARRAWEIT GUIM,5228"
+ "DARTMOOR,5229" "DARTMOUTH,5230" "DAYLESFORD,5231" "DAYLESFORD WEST,5232" "DEDDICK,5233" "DEDERANG,5234" "DENNINGTON,5235" "DEPTFORD,5236"
+ "DEREEL,5237" "DERGHOLM,5238" "DERRINALLUM,5239" "DEVENISH WEST,5240" "DEVON,5241" "DIAMOND CREEK,5242" "DIAPUR,5243" "DIGBY,5244"
+ "DIMBOOLA,5245" "DOLLAR,5246" "DONALD,5247" "DOOEN,5248" "DOUGLAS,5249" "DRIK DRIK,5250" "DROMANA,5251" "DROUIN,5252" "DRY DIGGINGS,5253"
+ "DRYSDALE,5254" "DUNBULBALANE,5255" "DUNKELD,5256" "DUNOLLY,5257" "DURHAM,5258" "DURHAM LEAD,5259" "DURHAM OX,5260" "EAST CUNNINGHAME,5261"
+ "EAST MURCHISON,5262" "ECHUCA,5263" "ECHUCA WEST,5264" "EDDINGTON,5265" "EDENHOPE,5266" "EDI,5267" "EGERTON,5268" "EILYAR,5269" "ELAINE,5270"
+ "ELAINE NORTH,5271" "ELDORADO,5272" "ELINGAMITE NORTH,5273" "ELLAM,5274" "ELLERSLIE,5275" "ELMHURST,5276" "ELMORE,5277" "ELPHINSTONE,5278"
+ "ELTHAM,5279" "EMERALD,5280" "EMU,5281" "ENSAY,5282" "EPPING,5283" "EPSOM,5284" "ESKDALE,5285" "EURACK,5286" "EUROA,5287" "EVANSFORD,5288"
+ "EVERTON,5289" "FERNBANK,5290" "FERNIHURST,5291" "FLINDERS,5292" "FLYNN,5293" "FLYNNS CREEK UPPER,5294" "FORREST,5295" "FOSTER,5296"
+ "FOSTERVILLE,5297" "FOXHOW,5298" "FRAMLINGHAM,5299" "FRANKLINFORD,5300" "FRANKSTON,5301" "FREEBURGH,5302" "FRYERSTOWN,5303" "FURNELL,5304"
+ "FYANSFORD,5305" "GALAH,5306" "GARFIELD,5307" "GARIBALDI,5308" "GARVOC,5309" "GAVAN DUFFY,5310" "GEELONG,5311" "GELANTIPY,5312"
+ "GELLIBRAND,5313" "GERANGAMETE,5314" "GERANG GERUNG,5315" "GHIN GHIN,5316" "GIFFARD,5317" "GIPSY POINT,5318" "GIRGARRE,5319"
+ "GISBORNE,5320" "GLANVILLE,5321" "GLEN DART,5322" "GLENGOWER,5323" "GLENLYON,5324" "GLENMAGGIE,5325" "GLENORCHY,5326" "GLENROWEN,5327"
+ "GLENTHOMPSON,5328" "GLEN WILLS,5329" "GOBUR,5330" "GOLDEN LAKE,5331" "GOLDSBOROUGH,5332" "GOON NURE,5333" "GOORAMADDA,5334" "GOORNONG,5335"
+ "GOOROC,5336" "GORDON,5337" "GORMANDALE,5338" "GOROKE,5339" "GOSCHEN,5340" "GOULD,5341" "GOWAR,5342" "GOWAR EAST,5343" "GOYURA,5344"
+ "GRANITE FLAT,5345" "GRANT,5346" "GRANTON,5347" "GRANTVILLE,5348" "GRANYA,5349" "GRAYTOWN,5350" "GREAT WESTERN,5351" "GREENDALE,5352"
+ "GREEN GULLY,5353" "GREENS CREEK,5354" "GRE GRE,5355" "GRENVILLE,5356" "GRETA,5357" "GRETA WEST,5358" "GUILDFORD,5359" "GUNBOWER,5360"
+ "GUNYAH GUNYAH,5361" "HADDON,5362" "HAINES,5363" "HAMILTON,5364" "HAPPY VALLEY,5365" "HARCOURT,5366" "HARRIETVILLE,5367" "HARROW,5368"
+ "HASTINGS,5369" "HATTAH,5370" "HAWKESDALE,5371" "HEALESVILLE,5372" "HEATHCOTE,5373" "HEATHERLIE,5374" "HEDLEY,5375" "HEIDELBERG,5376"
+ "HEPBURN,5377" "HEXHAM,5378" "HEYFIELD,5379" "HEYWOOD,5380" "HINNO-MUNJIE,5381" "HODDLE,5382" "HOLLINWOOD,5383" "HOMEBUSH,5384" "HOPETOUN,5385"
+ "HORSHAM,5386" "HOTSPUR,5387" "HOWQUA,5388" "HUNTLY,5389" "IGUANA CREEK,5390" "INGLEWOOD,5391" "INVERLEIGH,5392" "INVERLOCH,5393"
+"IRREWILLIPE,5394" "JAMIESON,5395" "JAM JERRUP,5396" "JARROTT,5397" "JEERALANG JUNCTION,5398" "JERRO,5399" "JOHNSONVILLE,5400" "KALIMNA,5401"
+ "KALKALLO,5402" "KANGAROO FLAT,5403" "KANIVA,5404" "KARABEAL,5405" "KARAWINNA,5406" "KARDELLA,5407" "KARNAK,5408" "KARWEEN,5409"
+ "KATAMATITE,5410" "KATANDRA,5411" "KEILOR,5412" "KERANG,5413" "KEWELL,5414" "KIALLA WEST,5415" "KIAMAL,5416" "KIATA,5417" "KILCUNDA,5418"
+ "KILMANY,5419" "KILMORE,5420" "KINGLAKE CENTRAL,5421" "KINGLAKE EAST,5422" "KINGOWER,5423" "KIRKSTALL,5424" "KOETONG,5425" "KOOLOONONG,5426"
+ "KOONDROOK,5427" "KOONOOMOO,5428" "KOONWARRA,5429" "KOOROOMAN,5430" "KOOYOORA,5431" "KOROKUBEAL,5432" "KORONG VALE,5433" "KORUMBURRA,5434"
+ "KOYUGA,5435" "KULWIN,5436" "KURRACA,5437" "KYABRAM,5438" "KYNETON,5439" "LAANECOORIE,5440" "LAANG,5441" "LAH,5442" "LAKE BOGA,5443"
+ "LAKE BOLAC,5444" "LAKE CHARM,5445" "LAKE ROWAN,5446" "LAKES ENTRANCE,5447" "LAL LAL,5448" "LAMPLOUGH,5449" "LANCEFIELD,5450"
+ "LANDSBOROUGH,5451" "LARA,5452" "LAUNCHING PLACE,5453" "LAURISTON,5454" "LAWLOIT,5455" "LAWRENCE,5456" "LEARMONTH,5457" "LEICHARDT,5458"
+ "LEONARDS HILL,5459" "LEONGATHA,5460" "LETHBRIDGE,5461" "LEXTON,5462" "LILLIMUR,5463" "LILLIMUR SOUTH,5464" "LILYDALE,5465" "LINGA,5466"
+ "LINTON,5467" "LISMORE,5468" "LITTLE RIVER,5469" "LLANELLY,5470" "LOCKINGTON,5471" "LOCKSLEY,5472" "LOCKWOOD,5473" "LONGERENONG,5474"
+ "LONGFORD,5475" "LONGWARRY,5476" "LONGWOOD,5477" "LORNE,5478" "LORQUON,5479" "LOWER EMU,5480" "LOWER HOMEBUSH,5481" "LUBECK,5482"
+ "LUCKNOW,5483" "LYONS,5484" "LYONVILLE,5485" "MACARTHUR,5486" "MACEDON,5487" "MACKINNONS BRIDGE,5488" "MAFEKING,5489" "MAFFRA,5490"
+ "MAINDAMPLE,5491" "MAJORCA,5492" "MALDON,5493" "MALLACOOTA,5494" "MALMSBURY,5495" "MANANGATANG,5496" "MANDURANG,5497" "MANGALORE,5498"
+ "MANORINA,5499" "MANSFIELD,5500" "MARENGO,5501" "MARIBYRNONG,5502" "MARLO,5503" "MARNOO,5504" "MARONG,5505" "MAROONA,5506" "MARUNGI,5507"
+ "MARYBOROUGH,5508" "MARYSVILLE,5509" "MATHIESONS,5510" "MATLOCK,5511" "MAUDE,5512" "MEENIYAN,5513" "MELBOURNE,5514" "MELBOURNE,5514A"
+ "MELBOURNE,5514A" "MELBOURNE,5514B" "MELBOURNE,5514B" "MELBOURNE,5514C" "MELBOURNE,5514D" "MELTON,5515" "MERBEIN,5516" "MEREDITH,5517"
+ "MERINGO,5518" "MERINGUR,5519" "MERINO,5520" "MERRICKS,5521" "MERRIJIG,5522" "MERRINEE,5523" "MERTON,5524" "METCALFE,5525" "METUNG,5526"
+ "MIA MIA,5527" "MIDDLE CREEK,5528" "MIEPOLL,5529" "MILLTOWN,5530" "MINERS REST,5531" "MINIMAY,5532" "MINYIP,5533" "MIRALIE,5534" "MIRAM,5535"
+ "MIRBOO,5536" "MIRBOO NORTH,5537" "MITCHELLSTOWN,5538" "MITTA MITTA,5539" "MITTYACK,5540" "MODEWARRE,5541" "MOE,5542" "MOLESWORTH,5543"
+ "MOLIAGUL,5544" "MOLYULLAH,5545" "MONBULK,5546" "MOONAMBEL,5547" "MOORILIM,5548" "MOOROOPNA,5549" "MORKALLA,5550" "MORNINGTON,5551"
+"MORRISONS,5552" "MORTLAKE,5553" "MORWELL,5554" "MOSSIFACE,5555" "MOYSTON,5556" "MUCKATAH,5557" "MUDGEEGONGA,5558" "MUMBANNAR,5559"
+ "MUNRO,5560" "MURCHISON,5561" "MURRABIT,5562" "MURRA WARRA,5563" "MURRAYVILLE,5564" "MURRUNGOWAR,5565" "MURTOA,5566" "MYRNIONG,5567"
+ "MYRTLEFORD,5568" "MYSTIC PARK,5569" "NAGAMBIE,5570" "NALINGA,5571" "NANDALY,5572" "NAPOLEONS,5573" "NARBETHONG,5574" "NARIEL,5575"
+"NARRAWONG,5576" "NATHALIA,5577" "NATIMUK,5578" "NATTE YALLOCK,5579" "NATYA,5580" "NAVARRE,5581" "NEERIM,5582" "NEILBOROUGH,5583" "NELSON,5584"
+ "NERRINA,5585" "NETHERBY,5586" "NEUARPUR,5587" "NEWBRIDGE,5588" "NEWBURY,5589" "NEWHAVEN,5590" "NEWLYN NORTH,5591" "NEWMERELLA,5592"
+ "NEWRY,5593" "NEWSTEAD,5594" "NHILL,5595" "NILMA,5596" "NI NI,5597" "NINYEUNOOK,5598" "NIRRANDA,5599" "NOOJEE,5600" "NORADJUHA,5601"
+"NORONG,5602" "NORTHCOTE,5603" "NOWA NOWA,5604" "NOWINGI,5605" "NULLAWIL,5606" "NUMURKAH,5607" "NUNGURNER,5608" "NUNTIN,5609" "NURRABIEL,5610"
+"NYAH,5611" "NYAH WEST,5612" "NYORA,5613" "OAKLEIGH,5614" "OLD LONGWOOD,5615" "OLINDA,5616" "OMEO,5617" "ORBOST,5618" "ORFORD,5619"
+ "OSBORNE,5620" "OUYEN,5621" "OXLEY,5622" "PAKENHAM,5623" "PANITYA,5624" "PANMURE,5625" "PANTON HILL,5626" "PAYNESVILLE,5627" "PEECHELBA,5628"
+ "PENSHURST,5629" "PERCYDALE,5630" "PETERBOROUGH,5631" "PHEASANT CREEK,5632" "PIANGIL,5633" "PIER-MILLAN,5634" "PIGEON PONDS,5635"
+ "PIMPINIO,5636" "PIRA,5637" "PIRIES,5638" "PIRLTA,5639" "PIRRON YALLOCK,5640" "PITFIELD,5641" "PITFIELD PLAINS,5642" "POLLARD,5643"
+ "POOWONG,5644" "POREPUNKAH,5645" "PORT ALBERT,5646" "PORTARLINGTON,5647" "PORT CAMPBELL,5648" "PORT FAIRY,5649" "PORT FRANKLIN,5650"
+ "PORTLAND,5651" "PORT WELSHPOOL,5652" "POWELLTOWN,5653" "PRINCETOWN,5654" "PULLUT,5655" "PURA PURA,5656" "PURDEET,5657" "PYALONG,5658"
+ "PYRAMID HILL,5659" "QUAMBATOOK,5660" "QUEENSCLIFF,5661" "QUEENSTOWN,5662" "RAGLAN,5663" "RAINBOW,5664" "RAVENSWOOD,5665" "RAYMOND ISLAND,5666"
+ "RAYWOOD,5667" "REDBANK,5668" "REDCASTLE,5669" "REDESDALE,5670" "RED HILL SOUTH,5671" "REEDY CREEK,5672" "RHEOLA,5673" "RHYLL,5674"
+ "RIDDELL,5675" "RINGWOOD,5676" "ROBINVALE,5677" "ROCHESTER,5678" "ROKEBY,5679" "ROKEWOOD,5680" "ROMSEY,5681" "ROSEBUD,5682" "ROSEDALE,5683"
+ "ROSSBRIDGE,5684" "ROWSLEY,5685" "RUFFY,5686" "RUNNYMEDE,5687" "RUPANYUP,5688" "RUSHWORTH,5689" "RUTHERGLEN,5690" "RYE,5691" "ST. ARNAUD,5692"
+ "ST. CLAIR,5693" "ST. LEONARDS,5694" "SALE,5695" "SALISBURY,5696" "SANDFORD,5697" "SANDY POINT,5698" "SAN REMO,5699" "SARSFIELD,5700"
+ "SCOTTS CREEK,5701" "SEACOMBE,5702" "SEA LAKE,5703" "SEASPRAY,5704" "SEATON,5705" "SEBASTIAN,5706" "SEBASTOPOL,5707" "SERPENTINE,5708"
+ "SERVICETON,5709" "SEVILLE,5710" "SEYMOUR,5711" "SHELFORD,5712" "SHEPPARTON,5713" "SHIRLEY,5714" "SHOREHAM,5715" "SKENES CREEK,5716"
+ "SKIPTON,5717" "SKYE,5718" "SMEATON,5719" "SMITHS GULLY,5720" "SMYTHESDALE,5721" "SORRENTO,5722" "SOUTH BANNOCKBURN,5723"
+ "SOUTH MUCKLEFORD,5724" "SPEED,5725" "SPRING HILL,5726" "SPRINGHURST,5727" "STANHOPE,5728" "STANLEY,5729" "STAWELL,5730" "STEIGLITZ,5731"
+ "STIRLING,5732" "STOCKYARD HILL,5733" "STONY CREEK,5734" "STRADBROKE,5735" "STRATFORD,5736" "STRATHALLAN,5737" "STRATHBOGIE,5738"
+ "STRATH CREEK,5739" "STRATHFIELDSAYE,5740" "STREATHAM,5741" "STUARTMILL,5742" "SUGGAN BUGGAN,5743" "SUNBURY,5744" "SUNNYSIDE,5745"
+ "SUTTON GRANGE,5746" "SWAN HILL,5747" "SWANPOOL,5748" "SWAN REACH,5749" "SWIFTS CREEK,5750" "SYDENHAM,5751" "TABBARA,5752" "TAGGERTY,5753"
+ "TAHARA,5754" "TALBOT,5755" "TALLANGALLOOK,5756" "TALLANGATTA,5757" "TALLANGATTA VALLEY,5758" "TALLAROOK,5759" "TAMBOON,5760"
+ "TAMBOON SOUTH,5761" "TARADALE,5762" "TARILTA,5763" "TARKEDIA,5764" "TARNAGULLA,5765" "TARRANGINNIE,5766" "TARRAVILLE,5767"
+ "TARRAYOUKYAN,5768" "TARWIN,5769" "TARWIN LOWER,5770" "TATONG,5771" "TATONGA,5772" "TATURA,5773" "TEESDALE,5774" "TELOPEA DOWNS,5775"
+ "TEMPLESTOWE,5776" "TEMPY,5777" "TERANG,5778" "TERRICK TERRICK,5779" "TERRICK TERRICK SOUTH,5780" "THE GAP,5781" "THOONA,5782"
+ "TIMBOON,5783" "TIMOR,5784" "TOLMIE,5785" "TONGALA,5786" "TONGIO-MUNJIE,5787" "TONGIO WEST,5788" "TOOLAMBA,5789" "TOOLANGI,5790"
+ "TOOLERN VALE,5791" "TOOLLEEN,5792" "TOOLONDO,5793" "TOOMBON,5794" "TOONGABBIE,5795" "TORQUAY,5796" "TORRITA,5797" "TOWANINNY,5798"
+ "TOWONG,5799" "TRAFALGAR,5800" "TRARALGON,5801" "TRENTHAM,5802" "TRINITA,5803" "TUNGAMAH,5804" "TUNSTALS,5805" "TUTYE,5806"
+ "TYAAK,5807" "TYERS (SEE 2185 BOOLA,5808" "TYLDEN,5809" "TYNONG,5810" "TYRENDARRA,5811" "UNDERBOOL,5812" "VAUGHAN,5813" "VENTNOR,5814"
+ "VIOLET TOWN,5815" "WAAIA,5816" "WAANYARRA,5817" "WAIL,5818" "WALHALLA,5819" "WALKERVILLE,5820" "WALLACE,5821" "WALLAN,5822" "WALMER,5823"
+ "WALPEUP,5824" "WAL WAL,5825" "WANDILIGONG,5826" "WANDIN YALLOCK,5827" "WANDO VALE,5828" "WANGARATTA,5829" "WANNON,5830" "WARBURTON,5831"
+ "WAREEK,5832" "WARNEET,5833" "WARRACKNABEAL,5834" "WARRAGUL,5835" "WARRAK,5836" "WARRANDYTE,5837" "WARRANDYTE NORTH" "WARRAYURE,5839"
+ "WARRENHEIP,5840" "WARRNAMBOOL,5841" "WATCHEM,5842" "WAUBRA,5843" "WAYGARA,5844" "WEDDERBURN,5845" "WEHLA,5846" "WERRIBEE,5847"
+ "WERRIMULL,5848" "WESBURN,5849" "WESTBURY,5850" "WESTMERE,5851" "WHARPARILLA NORTH,5852" "WHISKEY CREEK,5853" "WHITE HILLS,5854"
+ "WHITTLESEA,5855" "WHOROULY,5856" "WHROO,5857" "WICKLIFFE,5858" "WILBY,5859" "WILLENABRINA,5860" "WILLIAMSTOWN,5861" "WILLOW GROVE,5862"
+ "WILLUNG,5863" "WINCHELSEA,5864" "WINGEEL,5865" "WINSLOW,5866" "WINTON,5867" "WINYAR,5868" "WODONGA,5869" "WOMBELANO,5870" "WONTHAGGI,5871"
+ "WONWONDAH EAST,5872" "WONWONDAH NORTH,5873" "WOODEND,5874" "WOODFORD,5875" "WOODSIDE,5876" "WOODSIDE NORTH,5877" "WOODS POINT,5878"
+ "WOOD WOOD,5879" "WOOLAMAI,5880" "WOOLSTHORPE,5881" "WOOMELANG,5882" "WOORINEN SOUTH,5883" "WOORNDOO,5884" "WOOROONOOK,5885" "WUNGHNU,5886"
+ "WURDI BOLUC,5887" "WURRUK,5888" "WYCHEPROOF,5889" "WYELANGTA,5890" "WYUNA,5891" "YAAPEET,5892" "YACKANDANDAH,5893" "YAMBUK,5894"
+ "YANAC SOUTH,5895" "YANDOIT,5896" "YARCK,5897" "YARRAGON,5898" "YARRA JUNCTION,5899" "YARRARA,5900" "YARRAWONGA,5901" "YARTO,5902"
+ "YATPOOL,5903" "YEA,5904" "YELLINGBO,5905" "YELTA,5906" "YENDON,5907" "YUNGERA,5908" "YUPPECKIAR,5909"
 ))
 
 
@@ -20877,7 +22714,7 @@
       (command "scale" sent "" p2 "100")
 	  (setq mdist (rtos (* (distance existco p2 ) 1000) 2 0))
 	  (setq mang (angtos (angle p2 existco) 0 0))
-	  (COMMAND "TEXT" "J" "BL" existco TH (angtos (angle p2 existco) 0 5) (strcat mang "°-" mdist ))
+	  (COMMAND "TEXT" "J" "BL" existco TH (angtos (angle p2 existco) 0 5) (strcat mang " -" mdist ))
 
 	  (setq curorder (nth (- (length cgpointnum)(length remlist)) orderlist))
 	 
@@ -20972,29 +22809,31 @@
 	    (progn
 	      
 	      
-	    (if (setq stringpos (vl-string-search "desc" linetext ))(progn
+	    (if (setq stringpos (vl-string-search "desc=" linetext ))(progn
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 6)))
             (setq rodesc (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))(setq rodesc ""))
 
-	    (setq stringpos (vl-string-search "purpose" linetext ))
+	    (setq stringpos (vl-string-search "purpose=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 9)))
             (setq purpose (substr linetext (+ stringpos 10) (-(- wwpos 1)(+ stringpos 8))))
 	    (setq rolayer purpose)
 
-	    (setq stringpos (vl-string-search "setupID" linetext ))
+	    (setq stringpos (vl-string-search "setupID=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 9)))
             (setq setupid  (substr linetext (+ stringpos 10) (-(- wwpos 1)(+ stringpos 8))))
 	    
-	    (setq stringpos (vl-string-search "targetSetupID" linetext ))
+	    (setq stringpos (vl-string-search "targetSetupID=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 15)))
             (setq targetid  (substr linetext (+ stringpos 16) (-(- wwpos 1)(+ stringpos 14))))
 	    
-	    (setq stringpos (vl-string-search "azimuth" linetext ))
+	    (setq stringpos (vl-string-search "azimuth=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 9)))
             (setq bearing (substr linetext (+ stringpos 10) (-(- wwpos 1)(+ stringpos 8))))
+	    (setq dotpos (vl-string-position 46 bearing));remove trailing seconds zeros
+            (if (and (= (strlen (substr bearing (+ dotpos 2))) 4)(= (substr bearing (+ dotpos 4) 2) "00"))(setq bearing (substr bearing 1 (+ dotpos 3))))
 	    (setq xbearing bearing)
 
-	    (if (/= (setq stringpos (vl-string-search "horizDistance" linetext )) nil)(progn
+	    (if (/= (setq stringpos (vl-string-search "horizDistance=" linetext )) nil)(progn
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 15)))
             (setq dist (substr linetext (+ stringpos 16) (-(- wwpos 1)(+ stringpos 14)))))(setq dist ""))
 
@@ -21002,7 +22841,7 @@
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 14)))
             (setq distancetype (strcat " distanceType=\"" (substr linetext (+ stringpos 15) (-(- wwpos 1)(+ stringpos 13))) "\" ")))(setq distancetype ""))
 
-	    (if (/= (setq stringpos (vl-string-search "distanceAdoptionFactor" linetext )) nil)(progn
+	    (if (/= (setq stringpos (vl-string-search "distanceAdoptionFactor=" linetext )) nil)(progn
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 24)))
             (setq daf (substr linetext (+ stringpos 25) (-(- wwpos 1)(+ stringpos 23)))))(setq daf ""))
 
@@ -21072,7 +22911,7 @@
 	      ));p&if not already in list
 				    ));p&if traverse layer
 	      
-	      (if (= rolayer "sideshot")(progn
+	      (if (or (= rolayer "sideshot")(= rolayer "buildingReturn")(= rolayer "buildingBoundary"))(progn
 				    (if (= (member (strcat bearing "~" dist "!" targetid) sideobs) nil)(progn
 				    
 	      (setq sidepoints (append sidepoints (list setupid)))
@@ -21098,43 +22937,45 @@
 	    (progn
 	      
 	      
-	    (if (setq stringpos (vl-string-search "desc" linetext ))(progn
+	    (if (setq stringpos (vl-string-search "desc=" linetext ))(progn
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 6)))
             (setq rodesc (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))(setq rodesc ""))
 
-	    (setq stringpos (vl-string-search "purpose" linetext ))
+	    (setq stringpos (vl-string-search "purpose=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 9)))
             (setq purpose (substr linetext (+ stringpos 10) (-(- wwpos 1)(+ stringpos 8))))
 	    (setq rolayer purpose)
 
-	    (setq stringpos (vl-string-search "setupID" linetext ))
+	    (setq stringpos (vl-string-search "setupID=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 9)))
             (setq setupid  (substr linetext (+ stringpos 10) (-(- wwpos 1)(+ stringpos 8))))
 	    
-	    (setq stringpos (vl-string-search "targetSetupID" linetext ))
+	    (setq stringpos (vl-string-search "targetSetupID=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 15)))
             (setq targetid (substr linetext (+ stringpos 16) (-(- wwpos 1)(+ stringpos 14))))
 	    
-	    (setq stringpos (vl-string-search "chordAzimuth" linetext ))
+	    (setq stringpos (vl-string-search "chordAzimuth=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 14)))
             (setq bearing (substr linetext (+ stringpos 15) (-(- wwpos 1)(+ stringpos 13))))
+	    (setq dotpos (vl-string-position 46 bearing));remove trailing seconds zeros
+            (if (and (= (strlen (substr bearing (+ dotpos 2))) 4)(= (substr bearing (+ dotpos 4) 2) "00"))(setq bearing (substr bearing 1 (+ dotpos 3))))
 	    (setq xbearing bearing)
 
-	    (setq stringpos (vl-string-search "length" linetext ))
+	    (setq stringpos (vl-string-search "length=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 8)))
             (setq arclength (substr linetext (+ stringpos 9) (-(- wwpos 1)(+ stringpos 7))))
 	    (setq arclength (rtos (atof arclength)2 3));remove trailing zeros
 
-	    (setq stringpos (vl-string-search "radius" linetext ))
+	    (setq stringpos (vl-string-search "radius=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 8)))
             (setq radius (substr linetext (+ stringpos 9) (-(- wwpos 1)(+ stringpos 7))))
 	    
 
-	    (setq stringpos (vl-string-search "rot" linetext ))
+	    (setq stringpos (vl-string-search "rot=" linetext ))
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 5)))
             (setq curverot (substr linetext (+ stringpos 6) (-(- wwpos 1)(+ stringpos 4))))
 
-	    (if (/= (setq stringpos (vl-string-search "arcType" linetext )) nil)(progn
+	    (if (/= (setq stringpos (vl-string-search "arcType=" linetext )) nil)(progn
 	    (setq wwpos (vl-string-position 34 linetext (+ stringpos 9)))
             (setq arcType (strcat " arcType=\"" (substr linetext (+ stringpos 10) (-(- wwpos 1)(+ stringpos 8))) "\"")))(setq arcType ""))
 
@@ -21203,7 +23044,7 @@
 	      ));p&if not already in list
 				    ));p&if traverse layer
 	    
-	     (if (= rolayer "sideshot")(progn
+	     (if (or (= rolayer "sideshot")(= rolayer "buildingReturn")(= rolayer "buildingBoundary"))(progn
 				    (if (= (member (strcat "arc" bearing "~" arclength "," radius "!" targetid) sideobs) nil)(progn
 				    
 	      (setq sidepoints (append sidepoints (list setupid)))
@@ -21538,7 +23379,7 @@
 
 
   ;get zone if present
-  (if (/= (setq stringpos (vl-string-search "zoneNumber" linetext )) nil)(progn
+  (if (/= (setq stringpos (vl-string-search "zoneNumber=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 12)))(setq zone (substr linetext (+ stringpos 13) (-(- wwpos 1)(+ stringpos 11)))))(setq zone ""))
   
   (linereader)
@@ -21547,15 +23388,15 @@
   (if (/= (vl-string-search "<CgPoint" linetext )nil)
      (progn
        ;store line information
-       (if (/= (setq stringpos (vl-string-search "state" linetext )) nil)(progn
+       (if (/= (setq stringpos (vl-string-search "state=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 7)))(setq cgpstate (substr linetext (+ stringpos 8) (-(- wwpos 1)(+ stringpos 6)))))(setq cgpstate nil))
-              (if (/= (setq stringpos (vl-string-search "pntSurv" linetext )) nil)(progn
+              (if (/= (setq stringpos (vl-string-search "pntSurv=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 9)))(setq cgpntsurv (substr linetext (+ stringpos 10) (-(- wwpos 1)(+ stringpos 8)))))(setq cgpntsurv nil))
-              (if (/= (setq stringpos (vl-string-search "name" linetext )) nil)(progn
+              (if (/= (setq stringpos (vl-string-search "name=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 6)))(setq cgpname (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))(setq cgpname nil))
-                     (if (/= (setq stringpos (vl-string-search "oID" linetext )) nil)(progn
+                     (if (/= (setq stringpos (vl-string-search "oID=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 5)))(setq cgpoID (substr linetext (+ stringpos 6) (-(- wwpos 1)(+ stringpos 4)))))(setq cgpoID nil))
-                            (if (/= (setq stringpos (vl-string-search "desc" linetext )) nil)(progn
+                            (if (/= (setq stringpos (vl-string-search "desc=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 6)))(setq cgdesc (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))(setq cgdesc nil))
 
 
@@ -21597,7 +23438,7 @@
 (setq east  (atof (substr linetext (+ spcpos 2) (- (- <pos 1) spcpos ))))
 
        ;if in lats and longs convert to easting northing
-(if (vl-string-search "latitude=" linetext )(progn
+(if (vl-string-search "latitude=\"-" linetext )(progn
 					      (setq p1 (list east north))
 					      (LL2MGA)
 					      ))
@@ -21608,7 +23449,7 @@
 	   
        (setq cgco (nth (- (length cgpointnum)(length remlist)) cgpointco))
 (setq cgcos (strcat (rtos (car cgco)2 6) "," (rtos (cadr cgco) 2 6)))
-       (setq cgpointlist (append cgpointlist (list cgpname) (list cgcos)(list (substr cgpntsurv 1 1))))
+       (setq cgpointlist (append cgpointlist (list cgpname) (list cgcos)(list (substr cgpntsurv 1 2))))
 	   (setq origcgpointlist (append origcgpointlist  (list origco)))
 	   (setq newcgpointlist (append newcgpointlist (list cgco)))
            (setq east (car cgco))
@@ -21628,7 +23469,7 @@
        (setq p1 (list  east north))
        
        (command "point" p1)
-       (COMMAND "TEXT" "J" "BL"  P1 (* TH 0.25) "90" (strcat cgpname (substr cgpntsurv 1 1)(substr cgpstate 1 1)))
+       (COMMAND "TEXT" "J" "BL"  P1 (* TH 0.25) "90" (strcat cgpname (substr cgpntsurv 1 2)(substr cgpstate 1 1)))
        ))
 )
    );if not sideshot
@@ -21677,15 +23518,15 @@
    (if (/= (vl-string-search "<CgPoint" linetext )nil)
      (progn
        ;store line information
-       (if (/= (setq stringpos (vl-string-search "state" linetext )) nil)(progn
+       (if (/= (setq stringpos (vl-string-search "state=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 7)))(setq cgpstate (substr linetext (+ stringpos 8) (-(- wwpos 1)(+ stringpos 6)))))(setq cgpstate nil))
-              (if (/= (setq stringpos (vl-string-search "pntSurv" linetext )) nil)(progn
+              (if (/= (setq stringpos (vl-string-search "pntSurv=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 9)))(setq cgpntsurv (substr linetext (+ stringpos 10) (-(- wwpos 1)(+ stringpos 8)))))(setq cgpntsurv nil))
-              (if (/= (setq stringpos (vl-string-search "name" linetext )) nil)(progn
+              (if (/= (setq stringpos (vl-string-search "name=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 6)))(setq cgpname (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))(setq cgpname nil))
-                     (if (/= (setq stringpos (vl-string-search "oID" linetext )) nil)(progn
+                     (if (/= (setq stringpos (vl-string-search "oID=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 5)))(setq cgpoID (substr linetext (+ stringpos 6) (-(- wwpos 1)(+ stringpos 4)))))(setq cgpoID nil))
-                            (if (/= (setq stringpos (vl-string-search "desc" linetext )) nil)(progn
+                            (if (/= (setq stringpos (vl-string-search "desc=" linetext )) nil)(progn
 (setq wwpos (vl-string-position 34 linetext (+ stringpos 6)))(setq cgdesc (substr linetext (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))(setq cgdesc nil))
 
               	  
@@ -21707,7 +23548,7 @@
 (setq east (atof (substr linetext (+ spcpos 2) (- (- <pos 1) spcpos ))))
 
 	    ;if in lats and longs convert to easting northing
-(if (vl-string-search "latitude=" linetext )(progn
+(if (vl-string-search "latitude=\"-" linetext )(progn
 					      (setq p1 (list east north))
 					      (LL2MGA)
 					      ))
@@ -21728,7 +23569,7 @@
 
 (setq cgcos (strcat (rtos(+ (car shift) east) 2 6) "," (rtos(+ (cadr shift) north)2 6)))
 
- (setq cgpointlist (append cgpointlist (list cgpname) (list cgcos)(list (substr cgpntsurv 1 1))))
+ (setq cgpointlist (append cgpointlist (list cgpname) (list cgcos)(list (substr cgpntsurv 1 2))))
 
 	   ;check for max east min north
 	   
@@ -21919,6 +23760,79 @@
 
   )
 
+      
+
+;------------------------------------------------make objects invisible ------------------------------
+(DEFUN C:XMI (/)
+						  
+      
+  
+  (SETQ LINES (SSGET ))
+
+  (command "change" lines ""  "p" "c" "t" "255,255,255" "")
+  (command "draworder" lines "" "b")
+    )
+ 
+
+  
+
+
+;------------------------------------------------create brackets around text ------------------------------
+(DEFUN C:XUT (/)
+						  
+      
+  
+  (SETQ LINES (SSGET  '((0 . "TEXT"))))
+
+  (SETQ COUNT 0)
+
+  (repeat (sslength lines)
+(SETQ P1 (CDR(ASSOC 11 (ENTGET (SSNAME LINES COUNT)))))
+(SETQ TEXT (CDR(ASSOC 1 (ENTGET (SSNAME LINES COUNT)))))
+  (SETQ EN1 (CDR(ASSOC -1 (ENTGET (SSNAME LINES COUNT)))))
+
+    (SETQ TEXT (STRCAT "%%u" TEXT ))
+
+  (SETQ EN1G (ENTGET EN1))
+    
+  (SETQ	EN1G (subst (cons 1 TEXT)(assoc 1 EN1G) EN1G ) )
+ 
+  (ENTMOD EN1G)
+
+    (SETQ COUNT (+ COUNT 1))
+    )
+ 
+)
+
+
+
+;------------------------------------------------create brackets around text ------------------------------
+(DEFUN C:XUTR (/)
+						  
+      
+  
+  (SETQ LINES (SSGET  '((0 . "TEXT"))))
+
+  (SETQ COUNT 0)
+
+  (repeat (sslength lines)
+(SETQ P1 (CDR(ASSOC 11 (ENTGET (SSNAME LINES COUNT)))))
+(SETQ TEXT (CDR(ASSOC 1 (ENTGET (SSNAME LINES COUNT)))))
+  (SETQ EN1 (CDR(ASSOC -1 (ENTGET (SSNAME LINES COUNT)))))
+
+    (if (= (substr text 1 3) "%%u" )(SETQ TEXT (Substr TEXT 4 )))
+
+  (SETQ EN1G (ENTGET EN1))
+    
+  (SETQ	EN1G (subst (cons 1 TEXT)(assoc 1 EN1G) EN1G ) )
+ 
+  (ENTMOD EN1G)
+
+    (SETQ COUNT (+ COUNT 1))
+    )
+ 
+)
+
 ;----------------------------------------------------relabel text from xdata----------------------------------------------------
 (DEFUN C:XRT (/)
 (setq curlayer (getvar "CLAYER"))
@@ -21931,7 +23845,7 @@
   (SETQ EN (CDR(ASSOC -1 (ENTGET (SSNAME LINES COUNT)))))
   (SETQ LAYER (CDR(ASSOC 8 (ENTGET (SSNAME LINES COUNT)))))
 (setvar "CLAYER" (CDR(ASSOC 8 (ENTGET (SSNAME LINES COUNT)))))
-
+(setq prevlayer layer)
 
   
   
@@ -21955,12 +23869,12 @@
 	    (SETQ XDATAI (NTH 1 XDATAI))
 	    (SETQ XDATAI (CDR (NTH 1 XDATAI)))
 
-   (setq stringpos (vl-string-search "azimuth" xdatai ))
+   (setq stringpos (vl-string-search "azimuth=" xdatai ))
 	    (setq wwpos (vl-string-position 34 xdatai (+ stringpos 9)))
             (setq bearing (substr xdatai (+ stringpos 10) (-(- wwpos 1)(+ stringpos 8))))
 	    (setq xbearing bearing)
 
-	    (setq stringpos (vl-string-search "horizDistance" xdatai ))
+	    (setq stringpos (vl-string-search "horizDistance=" xdatai ))
 	    (setq wwpos (vl-string-position 34 xdatai (+ stringpos 15)))
             (setq dist (substr xdatai (+ stringpos 16) (-(- wwpos 1)(+ stringpos 14))))
 
@@ -22012,7 +23926,7 @@
       
 (setq bearing (strcat  deg "d" mins sec))
     ;(setq lbearing bearing)
-	    (setq dist (rtos (atof dist)2 3));remove trailing zeros
+	    ;(setq dist (rtos (atof dist)2 3));remove trailing zeros
 	    
   (setq ldist (strcat dist ))
 
@@ -22043,16 +23957,16 @@
 	    (SETQ XDATAI (CDR (NTH 1 XDATAI)))
 
       
- (if (/= (setq stringpos (vl-string-search "type" xdatai )) nil)(progn
+ (if (/= (setq stringpos (vl-string-search "type=" xdatai )) nil)(progn
 (setq stringpos (vl-string-search "type" xdatai ))(setq wwpos (vl-string-position 34 xdatai (+ stringpos 6)))(setq rmtype (substr xdatai (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))(setq rmtype ""))
- (if (/= (setq stringpos (vl-string-search "state" xdatai )) nil)(progn
+ (if (/= (setq stringpos (vl-string-search "state=" xdatai )) nil)(progn
 (setq wwpos (vl-string-position 34 xdatai (+ stringpos 7)))(setq rmstate (substr xdatai (+ stringpos 8) (-(- wwpos 1)(+ stringpos 6)))))(setq rmstate ""))
-(if (/= (setq stringpos (vl-string-search "condition" xdatai )) nil)(progn
+(if (/= (setq stringpos (vl-string-search "condition=" xdatai )) nil)(progn
 (setq wwpos (vl-string-position 34 xdatai (+ stringpos 11)))(setq rmcondition (substr xdatai (+ stringpos 12) (-(- wwpos 1)(+ stringpos 10)))))(setq rmcondition ""))
-(if (/= (setq stringpos (vl-string-search "desc" xdatai )) nil)(progn
+(if (/= (setq stringpos (vl-string-search "desc=" xdatai )) nil)(progn
 (setq wwpos (vl-string-position 34 xdatai (+ stringpos 6)))(setq rmcomment (substr xdatai (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))(setq rmcomment ""))
 (setq &pos 0)
-	     (if (/= (setq stringpos (vl-string-search "originSurvey" xdatai )) nil)(progn
+	     (if (/= (setq stringpos (vl-string-search "originSurvey=" xdatai )) nil)(progn
 (setq wwpos (vl-string-position 34 xdatai (+ stringpos 14)))(setq rmrefdp (substr xdatai (+ stringpos 15) (-(- wwpos 1)(+ stringpos 13)))))(setq rmrefdp ""))
 
 (lcm)
@@ -22116,8 +24030,8 @@
 	    (SETQ XDATAI (NTH 1 XDATAI))
 	    (SETQ XDATAI (CDR (NTH 1 XDATAI)))
 
-       (if (/= (setq stringpos (vl-string-search "desc" xdatai )) nil)(progn
-(setq stringpos (vl-string-search "desc" xdatai ))(setq wwpos (vl-string-position 34 xdatai (+ stringpos 6)))(setq PMNUM (substr xdatai (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))(setq PMNUM ""))
+       (if (/= (setq stringpos (vl-string-search "desc=" xdatai )) nil)(progn
+(setq stringpos (vl-string-search "desc=" xdatai ))(setq wwpos (vl-string-position 34 xdatai (+ stringpos 6)))(setq PMNUM (substr xdatai (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))(setq PMNUM ""))
       
 	 (SETVAR "CLAYER"  "Drafting AFR" )
   
@@ -22187,22 +24101,22 @@
 
 
 	  	  
-	    (setq stringpos (vl-string-search "chordAzimuth" XDATAI ))
+	    (setq stringpos (vl-string-search "chordAzimuth=" XDATAI ))
 	    (setq wwpos (vl-string-position 34 XDATAI (+ stringpos 14)))
             (setq bearing (substr XDATAI (+ stringpos 15) (-(- wwpos 1)(+ stringpos 13))))
 	    (setq xbearing bearing)
 
-	    (setq stringpos (vl-string-search "length" XDATAI ))
+	    (setq stringpos (vl-string-search "length=" XDATAI ))
 	    (setq wwpos (vl-string-position 34 XDATAI (+ stringpos 8)))
             (setq arclength (substr XDATAI (+ stringpos 9) (-(- wwpos 1)(+ stringpos 7))))
 	    (setq arclength (rtos (atof arclength)2 3));remove trailing zeros
 
-	    (setq stringpos (vl-string-search "radius" XDATAI ))
+	    (setq stringpos (vl-string-search "radius=" XDATAI ))
 	    (setq wwpos (vl-string-position 34 XDATAI (+ stringpos 8)))
             (setq radius (substr XDATAI (+ stringpos 9) (-(- wwpos 1)(+ stringpos 7))))
 	    
 
-	    (setq stringpos (vl-string-search "rot" XDATAI ))
+	    (setq stringpos (vl-string-search "rot=" XDATAI ))
 	    (setq wwpos (vl-string-position 34 XDATAI (+ stringpos 5)))
             (setq curverot (substr XDATAI (+ stringpos 6) (-(- wwpos 1)(+ stringpos 4))))
 
@@ -22215,15 +24129,15 @@
             (setq azimuthtype (strcat " azimuthType=\"" (substr xdatai (+ stringpos 14) (-(- wwpos 1)(+ stringpos 12))) "\" ")))(setq azimuthtype ""))
 
 	    
-	    (if (/= (setq stringpos (vl-string-search "arcType" XDATAI )) nil)(progn
+	    (if (/= (setq stringpos (vl-string-search "arcType=" XDATAI )) nil)(progn
 	    (setq wwpos (vl-string-position 34 XDATAI (+ stringpos 9)))
             (setq arcType (strcat " arcType=\"" (substr XDATAI (+ stringpos 10) (-(- wwpos 1)(+ stringpos 8))) "\"")))(setq arcType ""))
 
-	    (if (setq stringpos (vl-string-search "angleAccClass" XDATAI ))(progn
+	    (if (setq stringpos (vl-string-search "angleAccClass=" XDATAI ))(progn
 	    (setq wwpos (vl-string-position 34 XDATAI (+ stringpos 15)))
             (setq sdb (substr XDATAI (+ stringpos 16) (-(- wwpos 1)(+ stringpos 14)))))(setq sdb ""))
 
-	    (if (setq stringpos (vl-string-search "distanceAccClass" XDATAI ))(progn
+	    (if (setq stringpos (vl-string-search "distanceAccClass=" XDATAI ))(progn
 	    (setq wwpos (vl-string-position 34 XDATAI (+ stringpos 18)))
             (setq sdd (substr XDATAI (+ stringpos 19) (-(- wwpos 1)(+ stringpos 17)))))(setq sdd ""))
 		  
@@ -22463,7 +24377,7 @@
         (progn;if occ line
 
 	  
-	   (if (/= (setq stringpos (vl-string-search "desc" xdatai )) nil)(progn
+	   (if (/= (setq stringpos (vl-string-search "desc=" xdatai )) nil)(progn
 (setq stringpos (vl-string-search "desc" xdatai ))(setq wwpos (vl-string-position 34 xdatai (+ stringpos 6)))(setq offs (substr xdatai (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))(setq offs ""))
 
 	  (setq occpnt (trans (cdr (assoc 10 (ENTGET EN))) 0 1))
@@ -22521,16 +24435,16 @@
     (setq xdatai (substr xdatai (+ ,pos1 2)))
 			 (setq LLEN 0)
 			 
-		(SETQ COUNT 0)	 
+		(SETQ COUNT1 0)	 
   (REPEAT  (- (LENGTH PTLIST) 1) 
-    (setq p1 (nth count ptlist))
-    (setq p2 (nth (+ count 1) ptlist))
+    (setq p1 (nth count1 ptlist))
+    (setq p2 (nth (+ count1 1) ptlist))
 
     (setq ,pos1 (vl-string-position 44 xdatai 0))
     (IF (/= ,pos1 nil) (setq segdist (substr xdatai 1 ,pos1)
 			     xdatai (substr xdatai (+ ,pos1 2)))
 			     (setq segdist xdatai))
-         (setq LLEN   ( + LLEN (atof segdist )))
+         (setq LLEN (atof segdist ))
     
     
 
@@ -22552,7 +24466,7 @@
     
     
     (COMMAND "TEXT" "J" "ML" (trans P2 0 1) TH (ANGTOS ANG 1 4) ldist )
-    (SETQ COUNT (+ COUNT 1))
+    (SETQ COUNT1 (+ COUNT1 1))
 
         
     );R
@@ -22603,6 +24517,9 @@
   (SETVAR "CLAYER"  curlayer )
   );defun
 
+
+
+
 ;----------------------------------------------------push text and relabel----------------------------------------------------
 (DEFUN C:XPU (/)
  (setq curlayer (getvar "CLAYER"))
@@ -22631,12 +24548,12 @@
 	    (SETQ XDATAI (NTH 1 XDATAI))
 	    (SETQ XDATAI (CDR (NTH 1 XDATAI)))
 
-   (setq stringpos (vl-string-search "azimuth" xdatai ))
+   (setq stringpos (vl-string-search "azimuth=" xdatai ))
 	    (setq wwpos (vl-string-position 34 xdatai (+ stringpos 9)))
             (setq bearing (substr xdatai (+ stringpos 10) (-(- wwpos 1)(+ stringpos 8))))
 	    (setq xbearing bearing)
 
-	    (setq stringpos (vl-string-search "horizDistance" xdatai ))
+	    (setq stringpos (vl-string-search "horizDistance=" xdatai ))
 	    (setq wwpos (vl-string-position 34 xdatai (+ stringpos 15)))
             (setq dist (substr xdatai (+ stringpos 16) (-(- wwpos 1)(+ stringpos 14))))
 
@@ -22707,7 +24624,327 @@
   (SETVAR "CLAYER"  curlayer )
   );defun  
   
+
+
+;----------------------------------------------------rotate xml data----------------------------------------------------
+(DEFUN C:XRX (/)
+(setq curlayer (getvar "CLAYER"))
+  (SETQ LINES (SSGET  '((0 . "LINE,ARC"))))
+(SETQ XROT (GEtstring "Rotation to be applied:"))
+
+
+  (if (/= (vl-string-position 46 xrot 0) nil ) (PROGN
+  (setq dotpt1 (vl-string-position 46 xrot 0))
+  (setq xrdeg  (substr xrot 1  dotpt1 ))
+  (SETQ xrmins  (strcat (substr xrot (+ dotpt1 2) 2) ))
+  (setq xrsec  (substr xrot (+ dotpt1 4) 10))
+
+  (if (= (substr xrdeg 1 1) "-")(progn
+				  (setq xrdeg (rtos (+ 359 (atof xrdeg)) 2))
+				   (setq  xrmins (rtos (- 59 (atof xrmins)) 2))
+				   (setq  xrsec (rtos (- 60 (atof xrsec)) 2 ))
+				    
+    ));minus
+
   
+  (if (> (strlen xrsec) 2) (setq xrsec (strcat (substr xrsec 1 2) "." (substr xrsec 3 10))))
+  (if (= (strlen xrsec) 0) (setq xrsec ""))
+
+    (if (or
+	(= (strlen xrsec) 1)
+	(= (strlen xrmins) 1)
+	(> (atof xrmins) 60)
+	(> (atof xrsec) 60)
+	(> (atof xrdeg) 360)
+	)
+    (alert (strcat "That rotation looks a little funky - " xrot)))
+  
+  
+  );P
+	(progn
+	  (setq xrdeg bearing)
+	  (setq xrmins "")
+	  (setq xrsec "")
+	  (if (= (substr xrdeg 1 1) "-")(setq xrdeg (rtos (+ 360 (atof xrdeg)) 2)))
+	  );p else
+  
+  );IF
+
+  
+  (SETQ COUNT 0)
+(REPEAT (SSLENGTH LINES)
+  (SETQ OBJTYPE  (CDR(ASSOC 0 (ENTGET (SSNAME LINES COUNT)))))
+(SETQ P1 (CDR(ASSOC 10 (ENTGET (SSNAME LINES COUNT)))))
+  (SETQ EN (CDR(ASSOC -1 (ENTGET (SSNAME LINES COUNT)))))
+  (SETQ LAYER (CDR(ASSOC 8 (ENTGET (SSNAME LINES COUNT)))))
+(setvar "CLAYER" (CDR(ASSOC 8 (ENTGET (SSNAME LINES COUNT)))))
+(setq prevlayer layer)
+
+  
+  
+;LINE WITH BEARING AND DISTANCE
+  (IF (AND (= OBJTYPE "LINE") (/= (SUBSTR LAYER 1 10)  "Occupation"))
+    (PROGN
+  (SETQ P1 (LIST (CAR P1) (CADR P1)));2DISE P1 TO GIVE 2D DISTANCE
+  (SETQ P2 (CDR(ASSOC 11 (ENTGET (SSNAME LINES COUNT)))))
+  
+
+    (setq p1 (trans p1 0 1))
+  (setq p2 (trans p2 0 1))
+
+  (SETQ EN (CDR(ASSOC -1 (ENTGET (SSNAME LINES COUNT)))))
+
+		     (SETQ XDATAI (ENTGET EN '("LANDXML")))
+	    (IF (= (SETQ XDATAI (ASSOC -3 XDATAI)) NIL) (progn
+	      	     (COMMAND "CHANGE" en "" "P" "C" "6" "")
+	      (princ (strcat "\nERROR Selected Line has no XML data at " (rtos (car p1) 2 3) "," (rtos (cadr p1)2 3)))
+	     ))
+	    (SETQ XDATAI (NTH 1 XDATAI))
+	    (SETQ XDATAI (CDR (NTH 1 XDATAI)))
+
+   (setq stringpos (vl-string-search "azimuth=" xdatai ))
+	    (setq wwpos (vl-string-position 34 xdatai (+ stringpos 9)))
+            (setq bearing (substr xdatai (+ stringpos 10) (-(- wwpos 1)(+ stringpos 8))))
+	    (setq xbearing bearing)
+
+	    (setq stringpos (vl-string-search "horizDistance=" xdatai ))
+	    (setq wwpos (vl-string-position 34 xdatai (+ stringpos 15)))
+            (setq dist (substr xdatai (+ stringpos 16) (-(- wwpos 1)(+ stringpos 14))))
+
+    (if (/= (setq stringpos (vl-string-search "distanceType=" xdatai ))nil)(progn
+	    (setq wwpos (vl-string-position 34 xdatai (+ stringpos 14)))
+            (setq distancetype (strcat " distanceType=\"" (substr xdatai (+ stringpos 15) (-(- wwpos 1)(+ stringpos 13))) "\" ")))(setq distancetype ""))
+
+	    (if (/= (setq stringpos (vl-string-search "azimuthType=" xdatai ))nil)(progn
+	    (setq wwpos (vl-string-position 34 xdatai (+ stringpos 13)))
+            (setq azimuthtype (strcat " azimuthType=\"" (substr xdatai (+ stringpos 14) (-(- wwpos 1)(+ stringpos 12))) "\" ")))(setq azimuthtype ""))
+	  	    
+
+	    (if (/= (setq stringpos (vl-string-search "<FieldNote>" xdatai )) nil)(progn
+											   
+(if (setq wwpos (vl-string-position 34 xdatai (+ stringpos 12)))
+  (progn;if field not contains ""s
+    (setq comment (substr xdatai (+ stringpos 13) (-(- wwpos 1)(+ stringpos 11))))
+    )
+  (progn; else use the < to get other end of field note
+    (setq <pos (vl-string-position 60 xdatai (+ stringpos 11)))
+    (setq comment (substr xdatai (+ stringpos 12) (-(- <pos 1)(+ stringpos 10))))
+    )
+  )
+)
+  (setq comment ""))
+
+  (if (/= (vl-string-position 46 bearing 0) nil ) (PROGN
+  (setq dotpt1 (vl-string-position 46 bearing 0))
+  (setq deg  (substr bearing 1  dotpt1 ))
+  (SETQ mins   (substr bearing (+ dotpt1 2) 2) )
+  (if (= (strlen mins) 1)(setq mins (strcat  mins "0")));fix problem with truncating zeros on minutes and seconds
+  (setq sec  (substr bearing (+ dotpt1 4) 10))
+  (if (= (strlen sec) 1) (setq sec (strcat sec "0")))
+
+  
+  (if (> (strlen sec) 2) (setq sec (strcat (substr sec 1 2) "." (substr sec 3 10))))
+    
+  );P
+	(progn
+	  (setq deg bearing)
+	  (setq mins "")
+	  (setq sec "")
+	  );p else
+  
+  );IF
+
+      
+(setq newsec (+ (atof sec) (atof xrsec)))
+(setq newmin (+ (atof mins) (atof xrmins)))
+ (setq newdeg (+ (atof deg) (atof xrdeg)))
+  (if (>= newsec 60)(setq newsec (- newsec 60)
+			  newmin (+ newmin 1)))
+  (if (>= newmin 60)(setq newmin (- newmin 60)
+			  newdeg (+ newdeg 1)))
+  (if (>= newdeg 360) (setq newdeg (- newdeg 360)))
+
+
+  
+  (setq newbear (rtos (+ newdeg (/ newmin 100) (/ newsec 10000)) 2 9))
+
+    (if (/= (vl-string-position 46 newbear 0) nil ) (PROGN
+  (setq dotpt1 (vl-string-position 46 newbear 0))
+  (SETQ fp   (substr newbear (+ dotpt1 2)))
+  (if (or (= (strlen fp) 1)(= (strlen fp) 3))(setq newbear (strcat newbear "0")))
+  ))
+   
+(setq origatt "azimuth=")
+(setq newatt newbear)
+  
+ 	    
+     (if (/= (setq stringpos (vl-string-search origatt xdatai )) nil)(progn
+(setq wwpos (vl-string-position 34 xdatai (+ stringpos 7 2)))
+(setq ss (substr xdatai 1 (+ stringpos 7 2)))
+(setq es (substr xdatai (+ wwpos 1) 1000))
+(setq xdatai (strcat ss newatt es))
+       ))
+ 
+
+  (SETQ SENTLIST (ENTGET EN))
+(SETQ XDATA (LIST (LIST -3 (LIST "LANDXML" (CONS 1000 xdatai)))))
+   (setq NEWSENTLIST (APPEND SENTLIST XDATA))
+  (ENTMOD NEWSENTLIST)
+
+))
+  
+  
+;ARC
+ (IF (AND (= OBJTYPE "ARC") (/= (SUBSTR LAYER 1 10)  "Occupation"))
+    (PROGN
+
+       (SETQ EN (CDR(ASSOC -1 (ENTGET (SSNAME LINES COUNT)))))
+
+      (SETQ CP (CDR(ASSOC 10 (ENTGET (SSNAME LINES COUNT)))))
+  (SETQ RADIUS (CDR(ASSOC 40 (ENTGET (SSNAME LINES COUNT)))))
+  (SETQ EN (CDR(ASSOC -1 (ENTGET (SSNAME LINES COUNT)))))
+  (SETQ LAYER (CDR(ASSOC 8 (ENTGET (SSNAME LINES COUNT)))))
+
+  (SETQ ANG1 (CDR(ASSOC 50 (ENTGET (SSNAME LINES COUNT)))))
+  (SETQ ANG2 (CDR(ASSOC 51 (ENTGET (SSNAME LINES COUNT)))))
+
+  (SETQ P1 (POLAR CP ANG1 RADIUS))
+  (SETQ P2 (POLAR CP ANG2 RADIUS))
+  (SETQ ANG (ANGLE P1 P2))
+
+		     (SETQ XDATAI (ENTGET EN '("LANDXML")))
+	    (IF (= (SETQ XDATAI (ASSOC -3 XDATAI)) NIL) (progn
+	      	     (COMMAND "CHANGE" en "" "P" "C" "6" "")
+	      (princ (strcat "\nERROR Selected Line has no XML data at " (rtos (car p1) 2 3) "," (rtos (cadr p1)2 3)))
+	     ))
+	    (SETQ XDATAI (NTH 1 XDATAI))
+	    (SETQ XDATAI (CDR (NTH 1 XDATAI)))
+
+
+	  	  
+	    (setq stringpos (vl-string-search "chordAzimuth=" XDATAI ))
+	    (setq wwpos (vl-string-position 34 XDATAI (+ stringpos 14)))
+            (setq bearing (substr XDATAI (+ stringpos 15) (-(- wwpos 1)(+ stringpos 13))))
+	    (setq xbearing bearing)
+
+	    (setq stringpos (vl-string-search "length=" XDATAI ))
+	    (setq wwpos (vl-string-position 34 XDATAI (+ stringpos 8)))
+            (setq arclength (substr XDATAI (+ stringpos 9) (-(- wwpos 1)(+ stringpos 7))))
+	    (setq arclength (rtos (atof arclength)2 3));remove trailing zeros
+
+	    (setq stringpos (vl-string-search "radius=" XDATAI ))
+	    (setq wwpos (vl-string-position 34 XDATAI (+ stringpos 8)))
+            (setq radius (substr XDATAI (+ stringpos 9) (-(- wwpos 1)(+ stringpos 7))))
+	    
+
+	    (setq stringpos (vl-string-search "rot=" XDATAI ))
+	    (setq wwpos (vl-string-position 34 XDATAI (+ stringpos 5)))
+            (setq curverot (substr XDATAI (+ stringpos 6) (-(- wwpos 1)(+ stringpos 4))))
+
+      (if (/= (setq stringpos (vl-string-search "distanceType=" xdatai ))nil)(progn
+	    (setq wwpos (vl-string-position 34 xdatai (+ stringpos 14)))
+            (setq distancetype (strcat " distanceType=\"" (substr xdatai (+ stringpos 15) (-(- wwpos 1)(+ stringpos 13))) "\" ")))(setq distancetype ""))
+
+	    (if (/= (setq stringpos (vl-string-search "azimuthType=" xdatai ))nil)(progn
+	    (setq wwpos (vl-string-position 34 xdatai (+ stringpos 13)))
+            (setq azimuthtype (strcat " azimuthType=\"" (substr xdatai (+ stringpos 14) (-(- wwpos 1)(+ stringpos 12))) "\" ")))(setq azimuthtype ""))
+
+	    
+	    (if (/= (setq stringpos (vl-string-search "arcType=" XDATAI )) nil)(progn
+	    (setq wwpos (vl-string-position 34 XDATAI (+ stringpos 9)))
+            (setq arcType (strcat " arcType=\"" (substr XDATAI (+ stringpos 10) (-(- wwpos 1)(+ stringpos 8))) "\"")))(setq arcType ""))
+
+	    (if (setq stringpos (vl-string-search "angleAccClass=" XDATAI ))(progn
+	    (setq wwpos (vl-string-position 34 XDATAI (+ stringpos 15)))
+            (setq sdb (substr XDATAI (+ stringpos 16) (-(- wwpos 1)(+ stringpos 14)))))(setq sdb ""))
+
+	    (if (setq stringpos (vl-string-search "distanceAccClass=" XDATAI ))(progn
+	    (setq wwpos (vl-string-position 34 XDATAI (+ stringpos 18)))
+            (setq sdd (substr XDATAI (+ stringpos 19) (-(- wwpos 1)(+ stringpos 17)))))(setq sdd ""))
+		  
+
+	       (if (/= (setq stringpos (vl-string-search "<FieldNote>" XDATAI )) nil)(progn
+											   
+(if (setq wwpos (vl-string-position 34 XDATAI (+ stringpos 12)))
+  (progn;if field not contains ""s
+    (setq comment (substr XDATAI (+ stringpos 13) (-(- wwpos 1)(+ stringpos 11))))
+    )
+  (progn; else use the < to get other end of field note
+    (setq <pos (vl-string-position 60 XDATAI (+ stringpos 11)))
+    (setq comment (substr XDATAI (+ stringpos 12) (-(- <pos 1)(+ stringpos 10))))
+    )
+  )
+)
+  (setq comment ""))
+	    (setq &pos 0)
+	      (while (/=  (setq &pos (vl-string-search "&amp;" comment &pos )) nil) (setq comment (vl-string-subst "&" "&amp;"  comment &pos)
+										      &pos (+ &pos 1)))
+
+
+        (if (/= (vl-string-position 46 bearing 0) nil ) (PROGN
+  (setq dotpt1 (vl-string-position 46 bearing 0))
+  (setq deg  (substr bearing 1  dotpt1 ))
+  (SETQ mins   (substr bearing (+ dotpt1 2) 2) )
+  (if (= (strlen mins) 1)(setq mins (strcat  mins "0")));fix problem with truncating zeros on minutes and seconds
+  (setq sec  (substr bearing (+ dotpt1 4) 10))
+  (if (= (strlen sec) 1) (setq sec (strcat sec "0")))
+
+  
+  (if (> (strlen sec) 2) (setq sec (strcat (substr sec 1 2) "." (substr sec 3 10))))
+    
+  );P
+	(progn
+	  (setq deg bearing)
+	  (setq mins "")
+	  (setq sec "")
+	  );p else
+  
+  );IF
+
+      
+(setq newsec (+ (atof sec) (atof xrsec)))
+(setq newmin (+ (atof mins) (atof xrmins)))
+ (setq newdeg (+ (atof deg) (atof xrdeg)))
+  (if (>= newsec 60)(setq newsec (- newsec 60)
+			  newmin (+ newmin 1)))
+  (if (>= newmin 60)(setq newmin (- newmin 60)
+			  newdeg (+ newdeg 1)))
+  (if (>= newdeg 360) (setq newdeg (- newdeg 360)))
+  (setq newbear (rtos (+ newdeg (/ newmin 100) (/ newsec 10000)) 2 9))
+
+    (if (/= (vl-string-position 46 newbear 0) nil ) (PROGN
+  (setq dotpt1 (vl-string-position 46 newbear 0))
+  (SETQ fp   (substr newbear (+ dotpt1 2)))
+  (if (or (= (strlen fp) 1)(= (strlen fp) 3))(setq newbear (strcat newbear "0")))
+  ))
+   
+(setq origatt "chordAzimuth=")
+(setq newatt newbear)
+  
+ 	    
+     (if (/= (setq stringpos (vl-string-search origatt xdatai )) nil)(progn
+(setq wwpos (vl-string-position 34 xdatai (+ stringpos 12 2)))
+(setq ss (substr xdatai 1 (+ stringpos 12 2)))
+(setq es (substr xdatai (+ wwpos 1) 1000))
+(setq xdatai (strcat ss newatt es))
+       ))
+ 
+
+  (SETQ SENTLIST (ENTGET EN))
+(SETQ XDATA (LIST (LIST -3 (LIST "LANDXML" (CONS 1000 xdatai)))))
+   (setq NEWSENTLIST (APPEND SENTLIST XDATA))
+  (ENTMOD NEWSENTLIST)
+
+))
+
+  
+  
+
+(setq count (+ count 1))
+);r
+  
+  );defun
+
 						  
 
 ;----------------------------------------------------export mountuments to csv file------------------------------
@@ -22745,14 +24982,14 @@
 	      (while (/=  (setq &pos (vl-string-search "&" xdatai &pos )) nil) (setq xdatai (vl-string-subst "&amp;" "&"  xdatai &pos)
 										      &pos (+ &pos 4)))
 
-     (if (/= (setq stringpos (vl-string-search "state" xdatai )) nil)(progn
+     (if (/= (setq stringpos (vl-string-search "state=" xdatai )) nil)(progn
 	(setq wwpos (vl-string-position 34 xdatai (+ stringpos 7)))(setq rmstate (substr xdatai (+ stringpos 8) (-(- wwpos 1)(+ stringpos 6)))))(setq rmstate ""))
 
 
-    (if (/= (setq stringpos (vl-string-search "type" xdatai )) nil)(progn
+    (if (/= (setq stringpos (vl-string-search "type=" xdatai )) nil)(progn
 	(setq wwpos (vl-string-position 34 xdatai (+ stringpos 6)))(setq rmtype (substr xdatai (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))(setq rmtype ""))
 
-    (if (/= (setq stringpos (vl-string-search "desc" xdatai )) nil)(progn
+    (if (/= (setq stringpos (vl-string-search "desc=" xdatai )) nil)(progn
 	(setq wwpos (vl-string-position 34 xdatai (+ stringpos 6)))(setq rmdesc (substr xdatai (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))(setq rmdesc ""))
 
     (WRITE-LINE (strcat (rtos  ptnum  2 0) "," (rtos (car p1) 2 3) "," (rtos (cadr p1) 2 3) "," (rtos (caddr p1) 2 3) "," rmtype "-" rmdesc) outfile)
@@ -22808,10 +25045,10 @@
 
 
    
-    	    (setq stringpos (vl-string-search "azimuth" xdatai ))
+    	    (setq stringpos (vl-string-search "azimuth=" xdatai ))
 	    (setq wwpos (vl-string-position 34 xdatai (+ stringpos 9)))
             (setq xbearing (substr xdatai (+ stringpos 10) (-(- wwpos 1)(+ stringpos 8))))
-            (setq stringpos (vl-string-search "horizDistance" xdatai ))
+            (setq stringpos (vl-string-search "horizDistance=" xdatai ))
 	    (setq wwpos (vl-string-position 34 xdatai (+ stringpos 15)))
             (setq xdist (atof (substr xdatai (+ stringpos 16) (-(- wwpos 1)(+ stringpos 14)))))
 
@@ -23060,7 +25297,7 @@
        (setq &pos 0)
 	      (while (/=  (setq &pos (vl-string-search "&" xdatai &pos )) nil) (setq xdatai (vl-string-subst "&amp;" "&"  xdatai &pos)
 										      &pos (+ &pos 4)))
- (if (/= (setq stringpos (vl-string-search "originSurvey" xdatai )) nil)(progn
+ (if (/= (setq stringpos (vl-string-search "originSurvey=" xdatai )) nil)(progn
 	(setq wwpos (vl-string-position 34 xdatai (+ stringpos 14)))(setq OS (substr xdatai (+ stringpos 15) (-(- wwpos 1)(+ stringpos 13)))))(setq OS ""))
    
 
@@ -23127,6 +25364,7 @@
 	    (setq num (substr dist ( + dotpos2 2) (- (- /pos1 dotpos2) 1)))
 	    (setq idist (/ (atof num) (atof den)))
 	    (setq inches (substr dist (+ dotpos1 2) (- (- dotpos2 dotpos1) 1)))
+	    (if (> (atof inches) 12)(alert "More that 12 inches - is that correct?"))
 	    (setq idist (+ idist (atof inches)))
 	    (setq feet (substr dist 1  dotpos1 ))
 	    (setq idist (+ idist (* (atof feet) 12)))
@@ -23136,6 +25374,7 @@
 	(if (and (/= dotpos1 nil) (= /pos1 nil))
 	  (progn
 	    (setq inches (substr dist ( + dotpos1 2) 50))
+	    (if (> (atof inches) 12)(alert "More that 12 inches - is that correct?"))
 	    (setq feet (substr dist 1  dotpos1 ))
 	    (setq idist  (atof inches))
 	    (setq idist (+ idist (* (atof feet) 12)))
@@ -23161,6 +25400,7 @@
 
   (if (= units "DF")
     (progn
+      (if (vl-string-position 47 dist 0)(alert "/ entered when using decimal feet"))
       (setq dist (atof dist))
       (setq dist (rtos (* dist 0.3048)))
       )
@@ -23231,7 +25471,19 @@
 (setq PSpos nil
       TPpos nil
       PCpos nil
-      BPpos nil)
+      BPpos nil
+      LPpos nil
+      CDpos nil
+      CPpos nil
+      CDpos nil
+      APpos nil
+      SPpos nil
+      OPpos nil
+      RCpos nil
+      RPpos nil
+      REpos nil)
+
+		    
 
    
     (setq text (ssget  '((0 . "TEXT,MTEXT"))))
@@ -23278,6 +25530,10 @@
       (setq CSpos (vl-string-search "CS" textstring REFpos ))
       (setq APpos (vl-string-search "AP" textstring REFpos ))
       (setq SPpos (vl-string-search "SP" textstring REFpos ))
+      (setq OPpos (vl-string-search "OP" textstring REFpos ))
+      (setq RCpos (vl-string-search "RC" textstring REFpos ))
+      (setq RPpos (vl-string-search "RP" textstring REFpos ))
+      (setq REpos (vl-string-search "RE" textstring REFpos ))
 
       ;Note SP not added becuase of confusion with road plans but first SP with chkdgit is SP020337
       ;AP's appear to start getting check digits around AP60000 but it gets confusing with section number
@@ -23291,7 +25547,11 @@
 		      (/= CPpos nil)
 		      (/= CSpos nil)
 		      (/= APpos nil)
-		      (/= SPpos nil))		    
+		      (/= SPpos nil)
+		      (/= OPpos nil)
+		      (/= RCpos nil)
+		      (/= RPpos nil)
+		      (/= REpos nil))		    
 	     (progn
 	       ;find minimum number in string
 	       (IF (= PSpos nil)(setq PSpos 1000000000000))
@@ -23304,8 +25564,12 @@
 	       (IF (= CSpos nil)(setq CSpos 1000000000000))
 	       (IF (= APpos nil)(setq APpos 1000000000000))
 	       (IF (= SPpos nil)(setq SPpos 1000000000000))
+	       (IF (= OPpos nil)(setq OPpos 1000000000000))
+	       (IF (= RCpos nil)(setq RCpos 1000000000000))
+	       (IF (= RPpos nil)(setq RPpos 1000000000000))
+	       (IF (= REpos nil)(setq REpos 1000000000000))
 	       
-	       (setq refpos (fix(min PSpos TPpos PCpos BPpos LPpos CDpos CPpos CSpos APpos SPpos)))
+	       (setq refpos (fix(min PSpos TPpos PCpos BPpos LPpos CDpos CPpos CSpos APpos SPpos OPpos RCpos RPpos REpos)))
 	       
 	       (setq PSpos nil
 		     TPpos nil
@@ -23316,7 +25580,13 @@
 		     CPpos nil
 		     CSpos nil
 		     APpos nil
-		     SPpos nil)
+		     SPpos nil
+		     OPpos nil
+		     RCpos nil
+		     RPpos nil
+		     REpos nil)
+
+	       (setq chkdigit "")
 	       
 	       (setq prefix (substr textstring (+ 1 refpos) 2))
 	       (setq ref "")
@@ -23352,6 +25622,7 @@
 		       (and (= prefix "CS")(> (atof ref) 1386))
 		       (and (= prefix "AP")(> (atof ref) 59999))
 		       (and (= prefix "SP")(> (atof ref) 20335))
+		       (and (= prefix "OP")(> (atof ref) 125999))
 
 		       )
 		 (progn
@@ -23397,12 +25668,14 @@
 	     
 
 		     
-	       (princ (strcat "\n" prefix ref chkdigit))
+	       ;(princ (strcat "\n" prefix ref chkdigit))
 
 		 ));if check digit is at end of text string
 		      ));is a number to check
+	       (princ (strcat "\n" prefix (rtos (atof ref) 2 0) chkdigit))
 
-	       ));if 3rdnum is a number
+	       	       ));if 3rdnum is a number
+	       
 	       
 ;check for next number
 
@@ -23419,6 +25692,11 @@
       (setq CSpos (vl-string-search "CS" textstring REFpos ))
       (setq APpos (vl-string-search "AP" textstring REFpos ))
       (setq SPpos (vl-string-search "SP" textstring REFpos ))
+      (setq OPpos (vl-string-search "OP" textstring REFpos ))
+      (setq RCpos (vl-string-search "RC" textstring REFpos ))
+      (setq RPpos (vl-string-search "RP" textstring REFpos ))
+      (setq REpos (vl-string-search "RE" textstring REFpos ))
+
 
 
       ));p&if not end of line
@@ -23428,7 +25706,8 @@
 (setq count (+ count 1))
       );r
     );defun
-		       
+
+
 	
       
 ;----------------------------------------------------------------BULK EDIT replace--------------------------------
@@ -23605,6 +25884,7 @@
   (setq flowarrows "")
   (setq annolist "")
   (setq Roadcount 1)
+  (setq Easecount 1)
   (setq Easecounta 1)
     (setq annocount 1)
     (setq easelinklist (list))
@@ -23768,7 +26048,7 @@
        );&if
 
 ;check for clockwise rotation
-    (if (/= (setq stringpos (vl-string-search "rot" xdatai )) nil)(progn
+    (if (/= (setq stringpos (vl-string-search "rot=" xdatai )) nil)(progn
 (setq wwpos (vl-string-position 34 xdatai (+ stringpos 5)))(setq rot (substr xdatai (+ stringpos 6) (-(- wwpos 1)(+ stringpos 4))))))
 
     (if (= rot "cw")(progn
@@ -23780,17 +26060,17 @@
 
     ;turn arc into line
     
-    (setq stringpos (vl-string-search "chordAzimuth" xdatai ))
+    (setq stringpos (vl-string-search "chordAzimuth=" xdatai ))
 	    (setq wwpos (vl-string-position 34 xdatai (+ stringpos 14)))
             (setq bearing (substr xdatai (+ stringpos 15) (-(- wwpos 1)(+ stringpos 13))))
 	    (setq xbearing bearing)
 
-	    (setq stringpos (vl-string-search "length" xdatai ))
+	    (setq stringpos (vl-string-search "length=" xdatai ))
 	    (setq wwpos (vl-string-position 34 xdatai (+ stringpos 8)))
             (setq arclength (substr xdatai (+ stringpos 9) (-(- wwpos 1)(+ stringpos 7))))
 	    (setq arclength (rtos (atof arclength)2 3));remove trailing zeros
 
-	    (setq stringpos (vl-string-search "radius" xdatai ))
+	    (setq stringpos (vl-string-search "radius=" xdatai ))
 	    (setq wwpos (vl-string-position 34 xdatai (+ stringpos 8)))
             (setq radius (substr xdatai (+ stringpos 9) (-(- wwpos 1)(+ stringpos 7))))
 
@@ -23802,7 +26082,7 @@
 ;	    (setq wwpos (vl-string-position 34 xdatai (+ stringpos 18)))
 ;            (setq sdd (substr xdatai (+ stringpos 19) (-(- wwpos 1)(+ stringpos 17)))))(setq sdd ""))
 
-            (if (/= (setq stringpos (vl-string-search "desc" xdatai )) nil)(progn
+            (if (/= (setq stringpos (vl-string-search "desc=" xdatai )) nil)(progn
 	    (setq wwpos (vl-string-position 34 xdatai (+ stringpos 6)))
             (setq desc (substr xdatai (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5))))
 	    )(setq desc ""))
@@ -23924,7 +26204,7 @@
 
 
 
-    (if (/= (setq stringpos (vl-string-search "refplan" xdatai )) nil)(progn
+    (if (/= (setq stringpos (vl-string-search "refplan=" xdatai )) nil)(progn
 (setq wwpos (vl-string-position 34 xdatai (+ stringpos 9)))
 (setq stringpos1 (- stringpos 1)
        stringpos2 (+ wwpos 2) )
@@ -23966,6 +26246,10 @@
 ;-------------------------------------------------------------------Convert to SCFF-------------
 
 (defun c:X2SCFF (/)
+
+  (setq question (getstring "\nAre you sure you want to convert to SCFF:"))
+  (if (= (strcase (substr question 1 1)) "Y")
+    (progn
 
 (command "-layer" "r" "Adjoining Boundary" "Non SCFF Adjoining Boundary"
  "r" "Admin Sheet" "Non SCFF Admin Sheet" 
@@ -24025,13 +26309,13 @@
 	      (while (/=  (setq &pos (vl-string-search "&" xdatai &pos )) nil) (setq xdatai (vl-string-subst "&amp;" "&"  xdatai &pos)
 										      &pos (+ &pos 4)))
     
- (if (/= (setq stringpos (vl-string-search "parcelType" xdatai )) nil)(progn
+ (if (/= (setq stringpos (vl-string-search "parcelType=" xdatai )) nil)(progn
 (setq wwpos (vl-string-position 34 xdatai (+ stringpos 12)))(setq pcltype (substr xdatai (+ stringpos 13) (-(- wwpos 1)(+ stringpos 11))))))
-     (if (/= (setq stringpos (vl-string-search "name" xdatai )) nil)(progn
+     (if (/= (setq stringpos (vl-string-search "name=" xdatai )) nil)(progn
 (setq wwpos (vl-string-position 34 xdatai (+ stringpos 6)))(setq pclname (substr xdatai (+ stringpos 7) (-(- wwpos 1)(+ stringpos 5)))))(setq pclname ""))
-     (if (/= (setq stringpos (vl-string-search "class" xdatai )) nil)(progn
+     (if (/= (setq stringpos (vl-string-search "class=" xdatai )) nil)(progn
 (setq wwpos (vl-string-position 34 xdatai (+ stringpos 7)))(setq pclclass (substr xdatai (+ stringpos 8) (-(- wwpos 1)(+ stringpos 6)))))(setq lotclass ""))
-(if (/= (setq stringpos (vl-string-search "state" xdatai )) nil)(progn
+(if (/= (setq stringpos (vl-string-search "state=" xdatai )) nil)(progn
 (setq wwpos (vl-string-position 34 xdatai (+ stringpos 7)))(setq pclstate (substr xdatai (+ stringpos 8) (-(- wwpos 1)(+ stringpos 6)))))(setq pclstate ""))
     
 ;seperate centrepoint coord out.
@@ -24150,7 +26434,7 @@
 	      (while (/=  (setq &pos (vl-string-search "&" xdatai &pos )) nil) (setq xdatai (vl-string-subst "&amp;" "&"  xdatai &pos)
 										      &pos (+ &pos 4)))
     
- (if (/= (setq stringpos (vl-string-search "oID" xdatai )) nil)(progn
+ (if (/= (setq stringpos (vl-string-search "oID=" xdatai )) nil)(progn
 (setq wwpos (vl-string-position 34 xdatai (+ stringpos 5)))(setq oid (substr xdatai (+ stringpos 6) (-(- wwpos 1)(+ stringpos 4))))))
 
     (setq newlayer nil textlayer nil)
@@ -24173,13 +26457,358 @@
 
       ;possibly add traverse points on traverse lines
 
-
+));if question y
   );defun
     
 
+
+
+;-------------------------------------------------------------ASSIGN POLYLINE TO XML-----------------------------------
+
+(DEFUN C:XAPOP (/)
+
+  
+  (setq prevlayer (getvar "CLAYER"))
+(setq areapercent nil)
+  (setq calccen "N")
+  (if (= plotno nil) (setq plotno "1"))
+
+ (SETQ SENT (CAR (ENTSEL "\nSelect Polyline:")))
+ (setq lotc (getpoint "\nSelect Lot Centre (default Centroid):"))
     
+  (SETQ SENTLIST (ENTGET SENT))
+    ;go through polyline to get points to check for clockwise direction
+  (SETQ ZA (CDR (ASSOC 210 SENTLIST)))
+    (SETQ CWLIST (LIST))
+	    (foreach a SenTlist
+	      (if (= 10 (car a))
+
+		(setq CWLIST (append CWLIST (list (TRANS (cdr a) ZA 0))))
+	      )				;IF
+	      
+	    )				;FOREACH 			
+
+  (IF (> (lcw CWLIST) 0) (command "pedit" sent "r" "" ))
+  					(SETQ SENTLIST (ENTGET SENT))
+
+  (if (= lotc nil)
+    (progn
+      (calclotc cwlist)
+      (setq calccen "Y")));calculate lot center if none
+
+ 
+  
+
+ (SETQ lotno (getstring T (strcat "\n Lot Number [" plotno "]:" )))
+  (if (= lotno "") (setq lotno plotno))
        
-    
-	  
-	  
+   (setq area (getstring "\nArea or [C]alculate (mm.dm) (aa.rr.pp.f/p) [Last]:"))
+(if (or (= area "")(= area "l")(= area "L")(= area "LAST")(= area "last"))(setq area "Last"))
+
+  (if (= area "Last" )(setq area arealast))
+  (setq arealast area)
+
+
+  ;deal with imperial areas
+  
       
+	(setq dotpos1 (vl-string-position 46 area 0))
+	(if (= dotpos1 nil)(setq dotpos2 nil)(setq dotpos2 (vl-string-position 46 area (+ dotpos1 1))))
+	(if (/= dotpos2 nil)(progn;idenfited as imperial area, must have second dotpos to work
+			      
+	(if (= dotpos2 nil)(setq dotpos3 nil)(setq dotpos3 (vl-string-position 46 area (+ dotpos2 1))))
+	(setq /pos1 (vl-string-position 47 area 0))
+	(if (/= /pos1 nil);with factional part
+	  (progn
+	    (setq den (substr area ( + /pos1 2) 50))
+	    (setq num (substr area ( + dotpos3 2) (- (- /pos1 dotpos3) 1)))
+	    (setq fperch (/ (atof num) (atof den)))
+	    (setq perch (substr area (+ dotpos2 2) (- (- dotpos3 dotpos2) 1)))
+	    (setq perch (+ fperch (atof perch)))
+	    (setq rood (substr area (+ dotpos1 2) (- (- dotpos2 dotpos1) 1)))
+	    (setq perch (+ perch (* (atof rood) 40)))
+	    (setq acre (substr area 1  dotpos1 ))
+	    (setq perch (+ perch (* (atof acre) 160)))
+	    (setq area (rtos (* perch 25.2929538117) 2 9))
+	    )
+	  )
+	(if (and (/= dotpos1 nil)(/= dotpos2 nil)(= /pos1 nil));without fractional part
+	  (progn
+	    (setq perch (substr area ( + dotpos2 2) 50))
+	    (setq perch (atof perch))
+	    (setq rood (substr area (+ dotpos1 2) (- (- dotpos2 dotpos1) 1)))
+	    (setq perch (+ perch (* (atof rood) 40)))
+	    (setq acre (substr area 1  dotpos1 ))
+	    (setq perch (+ perch (* (atof acre) 160)))
+	    (setq area (rtos (* perch 25.2929538117) 2 9))
+	    )
+	  )
+	
+	));p&if imperial area
+
+   
+   (SETQ area1 (vlax-get-property (vlax-ename->vla-object sent ) 'area ))
+
+  (setvar "dimzin" 0)
+  (IF (or ( = area "C")(= area "c"))
+    (progn
+     (setq area (rtos area1 2 3))
+      (setq area1 (atof (rtos area1 2 3)));deal with recurring 9's
+      					    (if (> area1 0)(setq textarea (strcat (rtos (* (/ area1 0.1) 0.1) 2 1) "m ")))
+					    (if (> area1 100)(setq textarea (strcat (rtos (*  (/ area1 1) 1) 2 0) "m ")))
+      					    (if (> area1 10000) (setq textarea (strcat (rtos (*  (/ (/ area1 10000) 0.001) 0.001) 2 3) "ha")))
+					    (if (> area1 100000) (setq textarea (strcat (rtos (*  (/ (/ area1 10000) 0.01) 0.01) 2 2) "ha")))
+					    (if (> area1 1000000) (setq textarea (strcat (rtos (*  (/ (/ area1 10000) 0.1) 0.1) 2 1) "ha")))
+					    (if (> area1 10000000) (setq textarea (strcat (rtos (*  (/ (/ area1 10000) 1) 1) 2 0) "ha")))
+                                            (if (> area1 100000000) (setq textarea (strcat (rtos (* (/ (/ area1 1000000) 0.1) 0.1) 2 1) "km ")))
+                                            (if (> area1 1000000000) (setq textarea (strcat (rtos (*  (/ (/ area1 1000000) 1) 1) 2 0) "km ")))
+      
+					    
+      )
+    (progn
+     (setq areapercent (ABS(* (/  (- area1 (ATOF area)) area1) 100)))
+     (if (> areapercent 10) (alert (strcat "\nArea different to calulated by " (rtos areapercent 2 0)"%")))
+
+      				            (if (< (atof area) 0)(setq textarea (strcat (rtos (*  (/ (atof area) 0.1) 0.1) 2 1) "m ")))
+					    (if (> (atof area) 100)(setq textarea (strcat (rtos (*  (/ (atof area) 1) 1) 2 0) "m ")))
+      					    (if (> (atof area) 10000) (setq textarea (strcat (rtos (*  (/ (/ (atof area) 10000) 0.001) 0.001) 2 3) "ha")))
+					    (if (> (atof area) 100000) (setq textarea (strcat (rtos (*  (/ (/ (atof area) 10000) 0.01) 0.01) 2 2) "ha")))
+					    (if (> (atof area) 1000000) (setq textarea (strcat (rtos (*  (/ (/ (atof area) 10000) 0.1) 0.1) 2 1) "ha")))
+					    (if (> (atof area) 10000000) (setq textarea (strcat (rtos (*  (/ (/ (atof area) 10000) 1) 1) 2 0) "ha")))
+                                            (if (> (atof area) 100000000) (setq textarea (strcat (rtos (*  (/ (/ (atof area) 1000000) 0.1) 0.1) 2 1) "km ")))
+                                            (if (> (atof area) 1000000000) (setq textarea (strcat (rtos (*  (/ (/ (atof area) 1000000) 1) 1) 2 0) "km ")))
+
+     )
+    )
+  (setvar "dimzin" 8)
+      (setq lotstate (getstring "\nCreated/Extinguished/Affected/eXisting (C/E/A/X) [C]:"))
+  (if (or (= lotstate "c")(= lotstate "C"))(setq lotstate "created"))
+  (if (or (= lotstate "e")(= lotstate "E"))(setq lotstate "extinguished"))
+  (if (or (= lotstate "a")(= lotstate "A"))(setq lotstate "affected"))
+  (if (or (= lotstate "x")(= lotstate "X"))(setq lotstate "existing"))
+  (if (= lotstate "")(setq lotstate "created"))
+
+  (if (= (substr lotno 1 2) "PT")(setq pcltype " parcelType=\"Part\""
+				     lotno (substr lotno 3 50)
+				       ;desc "\" desc=\"PT"
+				       textarea (strcat "(" textarea ")")
+				       )
+    (setq pcltype " parcelType=\"Single\""
+	  ;desc ""
+	  )
+    )
+
+  (if (= calccen "N") (setq lotc (trans lotc 1 0)));convert to world if using UCS
+
+  (if (= (substr lotno 1 2) "CM")(setq oclass "Common Property")(setq oclass "Lot"))
+  
+    ;<Parcel name="30" class="Lot" state="proposed" parcelType="Single" parcelFormat="Standard" area="951.8">
+  (SETQ LTINFO (STRCAT "  <Parcel name=\"" lotno "\" class=\"" oclass "\" state=\"" lotstate "\"" pcltype " area=\""
+		       area "\">!" (rtos (cadr lotc) 2 6 ) " " (rtos (car lotc) 2 6)))
+(SETQ XDATA (LIST (LIST -3 (LIST "LANDXML" (CONS 1000 LTINFO)))))
+   (setq NEWSENTLIST (APPEND SENTLIST XDATA))
+  (SETQ NEWSENTLIST (subst (cons 8 "Lot Definitions")(assoc 8 NEWSENTLIST) NEWSENTLIST ))
+  (ENTMOD NEWSENTLIST)
+
+  (if (= pcltype " parcelType=\"Part\"")(setq lotnos (strcat "PT" lotno))(setq lotnos  lotno))
+
+(setq lotc (trans lotc 0 1));convert back to UCS if using one
+
+  (SETVAR "CELWEIGHT" 50)
+  (if (= lotstate "extinguished")(setvar "clayer" "Drafting AFR")(SETVAR "CLAYER"  "Drafting" ))
+  (setq areapos (polar lotc (* 1.5 pi) (* th 2.5)))
+  (COMMAND "INSERT" "PARCEL_DETAILS" lotc  TH TH "0" "" lotnos "" TEXTAREA "" "" "" "")
+  
+(SETVAR "CELWEIGHT" -1)
+  (if (/= (setq stringpos (vl-string-search "~" lotno )) nil)(setq suffix (substr lotno (+ stringpos 1)))(setq suffix ""))
+  (if (/= (atof lotno) 0)(setq plotno (strcat (rtos (+ (atof lotno) 1) 2 0) suffix)))  
+  
+
+  (COMMAND "DRAWORDER" SENT "" "BACK")
+
+      (SETVAR "CLAYER" prevlayer)
+
+   (IF (/= areapercent NIL)(PRINC (strcat "\nArea different to calulated by " (rtos areapercent 2 0)"%")))
+  );DEFUN
+
+    
+
+
+
+;-------------------------------------------------------------ASSIGN POLYLINE TO XML-----------------------------------
+
+(DEFUN C:XA2B (/)
+
+  
+  (setq prevlayer (getvar "CLAYER"))
+(setq areapercent nil)
+  (setq calccen "N")
+  (if (= plotno nil) (setq plotno "1"))
+
+ (SETQ SENT (CAR (ENTSEL "\nSelect Polyline:")))
+ (SETQ blk (CAR (ENTSEL "\nSelect Parcel Details Block:")))
+    
+  (SETQ SENTLIST (ENTGET SENT))
+    ;go through polyline to get points to check for clockwise direction
+  (SETQ ZA (CDR (ASSOC 210 SENTLIST)))
+    (SETQ CWLIST (LIST))
+	    (foreach a SenTlist
+	      (if (= 10 (car a))
+
+		(setq CWLIST (append CWLIST (list (TRANS (cdr a) ZA 0))))
+	      )				;IF
+	      
+	    )				;FOREACH 			
+
+  (IF (> (lcw CWLIST) 0) (command "pedit" sent "r" "" ))
+  					(SETQ SENTLIST (ENTGET SENT))
+
+  (if (= lotc nil)
+    (progn
+      (calclotc cwlist)
+      (setq calccen "Y")));calculate lot center if none
+
+ 
+  
+
+
+       
+   (setq area (getstring "\nArea or [C]alculate (mm.dm) (aa.rr.pp.f/p) [Last]:"))
+(if (or (= area "")(= area "l")(= area "L")(= area "LAST")(= area "last"))(setq area "Last"))
+
+  (if (= area "Last" )(setq area arealast))
+  (setq arealast area)
+
+
+  ;deal with imperial areas
+  
+      
+	(setq dotpos1 (vl-string-position 46 area 0))
+	(if (= dotpos1 nil)(setq dotpos2 nil)(setq dotpos2 (vl-string-position 46 area (+ dotpos1 1))))
+	(if (/= dotpos2 nil)(progn;idenfited as imperial area, must have second dotpos to work
+			      
+	(if (= dotpos2 nil)(setq dotpos3 nil)(setq dotpos3 (vl-string-position 46 area (+ dotpos2 1))))
+	(setq /pos1 (vl-string-position 47 area 0))
+	(if (/= /pos1 nil);with factional part
+	  (progn
+	    (setq den (substr area ( + /pos1 2) 50))
+	    (setq num (substr area ( + dotpos3 2) (- (- /pos1 dotpos3) 1)))
+	    (setq fperch (/ (atof num) (atof den)))
+	    (setq perch (substr area (+ dotpos2 2) (- (- dotpos3 dotpos2) 1)))
+	    (setq perch (+ fperch (atof perch)))
+	    (setq rood (substr area (+ dotpos1 2) (- (- dotpos2 dotpos1) 1)))
+	    (setq perch (+ perch (* (atof rood) 40)))
+	    (setq acre (substr area 1  dotpos1 ))
+	    (setq perch (+ perch (* (atof acre) 160)))
+	    (setq area (rtos (* perch 25.2929538117) 2 9))
+	    )
+	  )
+	(if (and (/= dotpos1 nil)(/= dotpos2 nil)(= /pos1 nil));without fractional part
+	  (progn
+	    (setq perch (substr area ( + dotpos2 2) 50))
+	    (setq perch (atof perch))
+	    (setq rood (substr area (+ dotpos1 2) (- (- dotpos2 dotpos1) 1)))
+	    (setq perch (+ perch (* (atof rood) 40)))
+	    (setq acre (substr area 1  dotpos1 ))
+	    (setq perch (+ perch (* (atof acre) 160)))
+	    (setq area (rtos (* perch 25.2929538117) 2 9))
+	    )
+	  )
+	
+	));p&if imperial area
+
+   
+   (SETQ area1 (vlax-get-property (vlax-ename->vla-object sent ) 'area ))
+
+  (setvar "dimzin" 0)
+  (IF (or ( = area "C")(= area "c"))
+    (progn
+     (setq area (rtos area1 2 3))
+      (setq area1 (atof (rtos area1 2 3)));deal with recurring 9's
+      					    (if (> area1 0)(setq textarea (strcat (rtos (* (/ area1 0.1) 0.1) 2 1) "m ")))
+					    (if (> area1 100)(setq textarea (strcat (rtos (*  (/ area1 1) 1) 2 0) "m ")))
+      					    (if (> area1 10000) (setq textarea (strcat (rtos (*  (/ (/ area1 10000) 0.001) 0.001) 2 3) "ha")))
+					    (if (> area1 100000) (setq textarea (strcat (rtos (*  (/ (/ area1 10000) 0.01) 0.01) 2 2) "ha")))
+					    (if (> area1 1000000) (setq textarea (strcat (rtos (*  (/ (/ area1 10000) 0.1) 0.1) 2 1) "ha")))
+					    (if (> area1 10000000) (setq textarea (strcat (rtos (*  (/ (/ area1 10000) 1) 1) 2 0) "ha")))
+                                            (if (> area1 100000000) (setq textarea (strcat (rtos (* (/ (/ area1 1000000) 0.1) 0.1) 2 1) "km ")))
+                                            (if (> area1 1000000000) (setq textarea (strcat (rtos (*  (/ (/ area1 1000000) 1) 1) 2 0) "km ")))
+      
+					    
+      )
+    (progn
+     (setq areapercent (ABS(* (/  (- area1 (ATOF area)) area1) 100)))
+     (if (> areapercent 10) (alert (strcat "\nArea different to calulated by " (rtos areapercent 2 0)"%")))
+
+      				            (if (< (atof area) 0)(setq textarea (strcat (rtos (*  (/ (atof area) 0.1) 0.1) 2 1) "m ")))
+					    (if (> (atof area) 100)(setq textarea (strcat (rtos (*  (/ (atof area) 1) 1) 2 0) "m ")))
+      					    (if (> (atof area) 10000) (setq textarea (strcat (rtos (*  (/ (/ (atof area) 10000) 0.001) 0.001) 2 3) "ha")))
+					    (if (> (atof area) 100000) (setq textarea (strcat (rtos (*  (/ (/ (atof area) 10000) 0.01) 0.01) 2 2) "ha")))
+					    (if (> (atof area) 1000000) (setq textarea (strcat (rtos (*  (/ (/ (atof area) 10000) 0.1) 0.1) 2 1) "ha")))
+					    (if (> (atof area) 10000000) (setq textarea (strcat (rtos (*  (/ (/ (atof area) 10000) 1) 1) 2 0) "ha")))
+                                            (if (> (atof area) 100000000) (setq textarea (strcat (rtos (*  (/ (/ (atof area) 1000000) 0.1) 0.1) 2 1) "km ")))
+                                            (if (> (atof area) 1000000000) (setq textarea (strcat (rtos (*  (/ (/ (atof area) 1000000) 1) 1) 2 0) "km ")))
+
+     )
+    )
+  (setvar "dimzin" 8)
+
+  
+
+  (setpropertyvalue blk "AREA" textarea)
+
+
+  
+  );DEFUN
+
+    
+ (defun c:xah ()
+   (setq prevlayer (getvar "CLAYER"))
+
+   (setvar "DIMBLK" ".")
+   (setvar "DIMASZ"  0.01)
+   (setvar "DIMSCALE" 1)
+  
+(setq ename (car (entsel "\nSelect spline: ")))
+   (setq arrowend (getpoint "Select end for arrow:"))
+   
+(setq ptlist nil)
+  (SETQ LAYER (CDR(ASSOC 8 (ENTGET ename))))
+(setvar "clayer" layer )
+   
+(setq ecnt 0 elen (length (entget ename)))
+(while (< ecnt elen)
+(setq element (nth ecnt (entget ename)))
+(if (equal (car element) 10)
+(setq ptlist (append (list (trans (cdr element) 0 1)) ptlist))
+);end setq
+(setq ecnt (1+ ecnt))
+);end while
+(setq ptlist (reverse ptlist))
+
+   (if (> (distance (list (car arrowend)(cadr arrowend)) (nth 0 ptlist))(distance (list (car arrowend)(cadr arrowend)) (nth (- (length ptlist) 1) ptlist)))
+	  (setq ptlist (reverse ptlist))
+     )
+  
+(command ".leader")
+(foreach x ptlist
+  
+(command x)
+)
+(command
+"f" "s" "" "o" ""
+".erase" (entlast) "")
+   (command ".explode" (entlast) "")
+(command ".erase" (entlast) "")
+;".erase" ename ""
+;".pedit" (entlast) "spline" ""
+
+(setq ang (angle (nth 1 ptlist)(nth 0 ptlist)))
+   (setq 2mp (polar (nth 0 ptlist) ang th ))
+   (command ".scale" (entlast) "" (nth 0 ptlist) (/  th 0.01))
+   (command ".move" (entlast) "" (nth 0 ptlist) 2mp)
+   
+
+
+    (setvar "clayer" prevlayer )
+)
