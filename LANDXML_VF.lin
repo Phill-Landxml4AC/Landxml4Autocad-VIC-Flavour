@@ -17,10 +17,20 @@ A,2,-.5,1,-.5,1,-0.5,2
 A,1,-.5
 *KERB,____  ____  ____  ____  ____  ___
 A,3.0,-.5
-*PARISH BOUNDARY,-- . --------
-A,1,-.25,[".",STANDARD,S=.35,R=0,X=-.0,Y=-.0],-.25,1
-*COUNTY BOUNDARY,-- X --------
-A,1,-.25,["X",STANDARD,S=.35,R=0,X=-.0,Y=-.0],-.25,1
+*PARISH BOUNDARY,___  __  ____
+A,1,-.4,.4,-.4
+*COUNTY BOUNDARY,_____  __ __ _____
+A,1,-.4,.4,-.4,.4,-.4
+*STATE BOUNDARY,_____ ___ _ _____
+A,1.2,-.4,.6,-.4,.2,-.4
+*TOWNSHIP BOUNDARY,_____    _____
+A,1,-.8
+*MUNICIPAL BOUNDARY,_____ ___ _ _____
+A,1,-.4,1,-0.4,0.4,-0.4
+*RESERVED FOREST,  - + -
+A,0.4,-0.4,0.6,["|",STANDARD,S=0.275,R=0,X=-0.35,Y=-0.15],-0.4
+*NATIONAL PARK, - ++ -
+A,0.4,-0.4,0.6,["|",STANDARD,S=0.275,R=0,X=-0.025,Y=-0.15],0.6,["|",STANDARD,S=0.275,R=0,X=-0.025,Y=-0.15],0.6,-0.4
 *STRUCTURE_INTERIOR,-- / --------
 A,0.3,["/",STANDARD,S=0.35,R=0,X=0,Y=0],0.3
 *STRUCTURE_EXTERIOR,-- / --------
